@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace ImaginaPay\Tests;
 
 use Brain\Monkey;
+use Brain\Monkey\Functions;
 use Mockery\Adapter\Phpunit\MockeryPHPUnitIntegration;
 
 abstract class TestCase extends \PHPUnit\Framework\TestCase
@@ -15,6 +16,8 @@ abstract class TestCase extends \PHPUnit\Framework\TestCase
     {
         parent::setUp();
         Monkey\setUp();
+        Functions\stubEscapeFunctions();
+        Functions\stubTranslationFunctions();
     }
 
     protected function tearDown(): void
