@@ -86,7 +86,12 @@ final class Plugin
 
         self::loadActionScheduler();
 
-        $container->get(Router::class)->register();
+        // Presupuesto de peso cero (sección 1): en requests ajenos al plugin
+        // solo se registran hooks; los controllers se construyen en rest_api_init.
+        add_action('rest_api_init', static function () use ($container): void {
+            $container->get(Router::class)->registerRoutes();
+        });
+
         $container->get(Scheduler::class)->register();
         $container->get(Hooks::class)->register();
         $container->get(Shortcodes::class)->register();

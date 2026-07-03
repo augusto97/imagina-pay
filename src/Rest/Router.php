@@ -5,8 +5,9 @@ declare(strict_types=1);
 namespace ImaginaPay\Rest;
 
 /**
- * Registra las rutas de todos los controllers en rest_api_init.
- * Los hooks de WP solo delegan: cero lógica aquí.
+ * Registra las rutas de todos los controllers. Se construye de forma
+ * perezosa dentro de rest_api_init (ver Plugin::boot): en requests que
+ * no son del API, ni el Router ni los controllers llegan a instanciarse.
  */
 final class Router
 {
@@ -17,12 +18,10 @@ final class Router
     {
     }
 
-    public function register(): void
+    public function registerRoutes(): void
     {
-        add_action('rest_api_init', function (): void {
-            foreach ($this->controllers as $controller) {
-                $controller->registerRoutes();
-            }
-        });
+        foreach ($this->controllers as $controller) {
+            $controller->registerRoutes();
+        }
     }
 }
