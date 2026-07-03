@@ -43,9 +43,7 @@ class PaymentLinkRepository extends AbstractRepository
     {
         return $this->insertRow(
             $this->table('payment_links'),
-            $data,
-            ['%s', '%d', '%d', '%d', '%s', '%s', '%s', '%s', '%s', '%d', '%s'],
-        );
+            $data);
     }
 
     public function updateStatus(int $id, PaymentLinkStatus $status, ?int $paidOrderId = null): void

@@ -36,7 +36,7 @@ class ProductRepository extends AbstractRepository
      */
     public function insert(array $data): int
     {
-        return $this->insertRow($this->table('products'), $data, ['%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s']);
+        return $this->insertRow($this->table('products'), $data);
     }
 
     /**

@@ -44,11 +44,22 @@ abstract class AbstractRepository
     }
 
     /**
+     * Inserta una fila derivando los formatos del tipo de cada valor,
+     * de modo que columnas opcionales no desalineen los placeholders.
+     *
      * @param array<string, mixed> $data
-     * @param array<int, string> $formats
      */
-    protected function insertRow(string $table, array $data, array $formats): int
+    protected function insertRow(string $table, array $data): int
     {
+        $formats = array_map(
+            static fn (mixed $value): string => match (true) {
+                is_int($value), is_bool($value) => '%d',
+                is_float($value) => '%f',
+                default => '%s',
+            },
+            array_values($data),
+        );
+
         $result = $this->db->insert($table, $data, $formats);
 
         if ($result === false) {

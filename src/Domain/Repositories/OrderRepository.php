@@ -54,8 +54,48 @@ class OrderRepository extends AbstractRepository
     {
         return $this->insertRow(
             $this->table('orders'),
-            $data,
-            ['%s', '%d', '%d', '%d', '%d', '%s', '%s', '%s', '%d', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s'],
+            $data);
+    }
+
+    public function linkSubscription(int $id, int $subscriptionId, \DateTimeImmutable $updatedAt): void
+    {
+        $this->db->update(
+            $this->table('orders'),
+            [
+                'subscription_id' => $subscriptionId,
+                'updated_at' => $this->formatDate($updatedAt),
+            ],
+            ['id' => $id],
+            ['%d', '%s'],
+            ['%d'],
+        );
+    }
+
+    public function setGatewayRef(int $id, string $gatewayRef, \DateTimeImmutable $updatedAt): void
+    {
+        $this->db->update(
+            $this->table('orders'),
+            [
+                'gateway_ref' => $gatewayRef,
+                'updated_at' => $this->formatDate($updatedAt),
+            ],
+            ['id' => $id],
+            ['%s', '%s'],
+            ['%d'],
+        );
+    }
+
+    public function setGatewayPaymentId(int $id, string $gatewayPaymentId, \DateTimeImmutable $updatedAt): void
+    {
+        $this->db->update(
+            $this->table('orders'),
+            [
+                'gateway_payment_id' => $gatewayPaymentId,
+                'updated_at' => $this->formatDate($updatedAt),
+            ],
+            ['id' => $id],
+            ['%s', '%s'],
+            ['%d'],
         );
     }
 

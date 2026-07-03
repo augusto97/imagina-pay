@@ -65,9 +65,7 @@ class SubscriptionRepository extends AbstractRepository
     {
         return $this->insertRow(
             $this->table('subscriptions'),
-            $data,
-            ['%s', '%d', '%d', '%d', '%s', '%s', '%s', '%s', '%s', '%d', '%s', '%d', '%s', '%s', '%s'],
-        );
+            $data);
     }
 
     /**
@@ -91,6 +89,68 @@ class SubscriptionRepository extends AbstractRepository
         }
 
         $this->db->update($this->table('subscriptions'), $data, ['id' => $id], $formats, ['%d']);
+    }
+
+    public function setGatewaySubId(int $id, string $gatewaySubId, \DateTimeImmutable $updatedAt): void
+    {
+        $this->db->update(
+            $this->table('subscriptions'),
+            [
+                'gateway_sub_id' => $gatewaySubId,
+                'updated_at' => $this->formatDate($updatedAt),
+            ],
+            ['id' => $id],
+            ['%s', '%s'],
+            ['%d'],
+        );
+    }
+
+    /**
+     * Extiende el periodo vigente tras un cobro aprobado y resetea el
+     * contador de pagos fallidos.
+     */
+    public function extendPeriod(
+        int $id,
+        \DateTimeImmutable $periodStart,
+        \DateTimeImmutable $periodEnd,
+        \DateTimeImmutable $updatedAt,
+    ): void {
+        $this->db->update(
+            $this->table('subscriptions'),
+            [
+                'current_period_start' => $this->formatDate($periodStart),
+                'current_period_end' => $this->formatDate($periodEnd),
+                'failed_payments' => 0,
+                'updated_at' => $this->formatDate($updatedAt),
+            ],
+            ['id' => $id],
+            ['%s', '%s', '%d', '%s'],
+            ['%d'],
+        );
+    }
+
+    /**
+     * Incrementa pagos fallidos de forma atómica y devuelve el nuevo conteo.
+     */
+    public function incrementFailedPayments(int $id, \DateTimeImmutable $updatedAt): int
+    {
+        $prepared = $this->db->prepare(
+            'UPDATE %i SET failed_payments = failed_payments + 1, updated_at = %s WHERE id = %d',
+            $this->table('subscriptions'),
+            $this->formatDate($updatedAt),
+            $id,
+        );
+
+        if (is_string($prepared)) {
+            $this->db->query($prepared);
+        }
+
+        $row = $this->selectRow(
+            'SELECT failed_payments FROM %i WHERE id = %d',
+            [$this->table('subscriptions'), $id],
+        );
+
+        return $row === null ? 0 : (int) ($row['failed_payments'] ?? 0);
     }
 
     public function markCancelAtPeriodEnd(int $id, bool $cancelAtPeriodEnd, \DateTimeImmutable $updatedAt): void

@@ -37,15 +37,29 @@ class PaymentRepository extends AbstractRepository
     }
 
     /**
+     * Actualiza el estado de un pago existente (pending → approved, etc.).
+     */
+    public function updateStatus(int $id, PaymentStatus $status, ?\DateTimeImmutable $paidAt = null): void
+    {
+        $data = ['status' => $status->value];
+        $formats = ['%s'];
+
+        if ($paidAt !== null) {
+            $data['paid_at'] = $this->formatDate($paidAt);
+            $formats[] = '%s';
+        }
+
+        $this->db->update($this->table('payments'), $data, ['id' => $id], $formats, ['%d']);
+    }
+
+    /**
      * @param array<string, mixed> $data
      */
     public function insert(array $data): int
     {
         return $this->insertRow(
             $this->table('payments'),
-            $data,
-            ['%s', '%d', '%d', '%d', '%s', '%s', '%s', '%s', '%d', '%s', '%s', '%s', '%s'],
-        );
+            $data);
     }
 
     /**

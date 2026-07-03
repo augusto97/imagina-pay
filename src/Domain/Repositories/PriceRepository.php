@@ -54,7 +54,7 @@ class PriceRepository extends AbstractRepository
      */
     public function insert(array $data): int
     {
-        return $this->insertRow($this->table('prices'), $data, ['%s', '%d', '%s', '%d', '%s', '%d', '%s', '%s', '%s', '%s']);
+        return $this->insertRow($this->table('prices'), $data);
     }
 
     /**

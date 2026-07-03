@@ -42,7 +42,41 @@ class CustomerRepository extends AbstractRepository
      */
     public function insert(array $data): int
     {
-        return $this->insertRow($this->table('customers'), $data, ['%s', '%d', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s']);
+        return $this->insertRow($this->table('customers'), $data);
+    }
+
+    /**
+     * Actualiza los datos de contacto/fiscales del cliente.
+     *
+     * @param array<string, string|null> $fields
+     */
+    public function update(int $id, array $fields, \DateTimeImmutable $updatedAt): void
+    {
+        $allowed = ['full_name', 'company', 'tax_id_type', 'tax_id', 'country', 'phone'];
+        $data = array_intersect_key($fields, array_flip($allowed));
+        $data['updated_at'] = $this->formatDate($updatedAt);
+
+        $this->db->update(
+            $this->table('customers'),
+            $data,
+            ['id' => $id],
+            array_fill(0, count($data), '%s'),
+            ['%d'],
+        );
+    }
+
+    public function linkWpUser(int $id, int $wpUserId, \DateTimeImmutable $updatedAt): void
+    {
+        $this->db->update(
+            $this->table('customers'),
+            [
+                'wp_user_id' => $wpUserId,
+                'updated_at' => $this->formatDate($updatedAt),
+            ],
+            ['id' => $id],
+            ['%d', '%s'],
+            ['%d'],
+        );
     }
 
     /**

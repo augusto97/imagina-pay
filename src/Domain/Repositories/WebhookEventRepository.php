@@ -12,6 +12,19 @@ use ImaginaPay\Domain\Enums\WebhookEventStatus;
  */
 class WebhookEventRepository extends AbstractRepository
 {
+    /**
+     * Fila cruda del evento (para el processor asíncrono).
+     *
+     * @return array<string, mixed>|null
+     */
+    public function find(int $id): ?array
+    {
+        return $this->selectRow(
+            'SELECT * FROM %i WHERE id = %d',
+            [$this->table('webhook_events'), $id],
+        );
+    }
+
     public function exists(string $gateway, string $eventId): bool
     {
         $row = $this->selectRow(
@@ -63,7 +76,6 @@ class WebhookEventRepository extends AbstractRepository
                 'attempts' => 0,
                 'received_at' => $this->formatDate($receivedAt),
             ],
-            ['%s', '%s', '%s', '%s', '%s', '%d', '%s'],
         );
     }
 
