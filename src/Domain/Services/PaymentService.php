@@ -53,6 +53,11 @@ class PaymentService
         $now = $this->clock->now();
         $this->orders->setGatewayPaymentId($order->id, $payment->gatewayPaymentId, $now);
 
+        if ($payment->status === PaymentStatus::Approved) {
+            // Un recibo por pago aprobado (el upsert deduplica reintentos).
+            do_action('impay_payment_approved', $payment, $order->customerId);
+        }
+
         // Un order pagado nunca se degrada por webhooks tardíos (salvo reembolso).
         if ($order->status === OrderStatus::Paid && $payment->status !== PaymentStatus::Refunded) {
             return;
@@ -108,6 +113,9 @@ class PaymentService
     private function onSubscriptionPaymentApproved(Subscription $subscription, GatewayPayment $payment): void
     {
         $now = $this->clock->now();
+
+        do_action('impay_payment_approved', $payment, $subscription->customerId);
+
         $price = $this->prices->find($subscription->priceId);
 
         if ($price === null) {
