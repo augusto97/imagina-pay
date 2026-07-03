@@ -6,9 +6,52 @@
 
 ## Estado actual
 
-- **Fase actual:** Fase 1 — Fundaciones (backend core) → **COMPLETADA ✅**
-- **Siguiente paso:** Fase 2 — Mercado Pago end-to-end (esperando confirmación para iniciar)
-- **Gates de calidad:** PHPStan level 8 en verde (0 errores) · PHPUnit 59 tests / 236 aserciones en verde · PHPCS (WordPress-Extra ajustado) en verde
+- **Fase actual:** Fase 2 — Mercado Pago end-to-end → **COMPLETADA (código + tests) ✅** · Pendiente: prueba en sandbox con credenciales reales de MP
+- **Siguiente paso:** Fase 3 — PayPal + suscripciones lógicas (annual_hybrid, RenewalService, DunningService, ReconciliationService, jobs)
+- **Gates de calidad:** PHPStan level 8 en verde (0 errores) · PHPUnit 98 tests / 345 aserciones en verde · PHPCS en verde
+
+---
+
+## Sesión 2026-07-03 (continuación) — Fase 2 completa
+
+### Tareas completadas
+
+1. **Capa HTTP** (`src/Http/`): `HttpClient` sobre `wp_remote_request` con reintentos exponenciales (intento inicial + 3 reintentos, esperas 1s/4s/9s) ante error de red, 429 o 5xx; 4xx no se reintenta. Sleeper inyectable para tests. `HttpResponse` y `IdempotencyKey` (SHA-256 determinista por operación de dominio).
+2. **MercadoPagoClient**: wrapper REST sin SDK (Bearer token, `X-Idempotency-Key` en POST, toggle sandbox → access token de test, errores de API → `GatewayException`).
+3. **MercadoPagoWebhookVerifier**: firma `x-signature` (`ts=…,v1=…`), manifest `id:{data.id};request-id:{x-request-id};ts:{ts};`, HMAC-SHA256 + `hash_equals`, ventana de 5 minutos, tolera ts en ms.
+4. **MercadoPagoGateway**: Checkout Pro (`POST /checkout/preferences` con external_reference, back_urls a /gracias?order={uuid}, auto_return, notification_url, statement_descriptor IMAGINAWP), Preapproval sin plan (`frequency_type: months`, anual = frequency 12), cancel/pause/resume (`PUT /preapproval`), fetchers de reconciliación, `createPaymentLink` vía preferencia (consumo del link pagado llega con RenewalService en Fase 3).
+5. **MercadoPagoWebhookHandler**: siempre fetch a la API antes de procesar (nunca confiar en el payload). Topics: `payment` (order por external_reference, o suscripción si el extref es el uuid de la sub), `subscription_preapproval` (mapeo authorized→active, paused→paused, cancelled→cancelled), `subscription_authorized_payment` (dedupe con topic payment vía id del pago subyacente).
+6. **PaymentService**: upsert idempotente por (gateway, gateway_payment_id) con actualización de estado (pending→approved); order paid nunca se degrada por webhooks tardíos; cobro de suscripción aprobado → extiende periodo desde max(now, period_end), resetea fallos, activa (pending/past_due→active) y marca paid el order inicial (vía meta `initial_order_uuid`); rechazado → incrementa fallos, active→past_due, 3er fallo en past_due→cancelled.
+7. **CheckoutService**: valida producto/precio activos y correspondencia, chequea `supports('currency_XXX')` y `supports('recurring')` del gateway, upsert de customer por email, crea order (kind purchase | subscription_initial) y subscription pending si aplica, guarda gateway_ref / gateway_sub_id, devuelve redirect_url.
+8. **Webhooks**: `WebhookController` (`POST /webhooks/{gateway}`): verificar firma (401 si falla) → persistir con UNIQUE (gateway, event_id) → `as_enqueue_async_action('impay_process_webhook')` → 200 inmediato; duplicado → 200 sin reprocesar; fallo de persistencia → 500 (la pasarela reintenta). `WebhookProcessor` marca processed/failed. `Jobs\Scheduler` registra el hook con resolución perezosa del container.
+9. **REST**: `POST /checkout` (honeypot `website` + rate limit 10/10min + nonce + validación por esquema) y `GET /orders/{uuid}/status` (público, rate limit 120/10min, solo `{status, product_name}`).
+10. **Tests nuevos** (39): HttpClient (reintentos/backoff/4xx), verificador de firma MP (8 casos), PaymentService (idempotencia, transiciones, periodo, dunning), CheckoutService (one-time, recurrente, annual_hybrid, errores), MercadoPagoGateway (payloads de preference/preapproval, sandbox, supports).
+
+### Decisiones tomadas (Fase 2)
+
+| # | Decisión | Razón |
+|---|---|---|
+| 16 | `event_id` de MP = header `x-request-id` (fallback: hash de topic+data.id+firma) | Idempotencia por entrega; la idempotencia de efectos la garantizan además la UNIQUE de payments y la state machine |
+| 17 | La activación por `subscription_preapproval` NO extiende el periodo; solo el webhook del pago aprobado lo hace | Evita doble extensión (activación + primer cargo) |
+| 18 | El order `subscription_initial` pasa a paid cuando se aprueba el primer cargo, vía `meta.initial_order_uuid` de la suscripción | El external_reference del preapproval es el uuid de la sub, no del order; /gracias necesita ver el order en paid |
+| 19 | `annual_hybrid` en checkout = pago único (`kind: purchase`); su suscripción lógica se crea al pagar (Fase 3, RenewalService) | Roadmap sección 17 |
+| 20 | Honeypot activado → respuesta neutra 200 con redirect a home (no se revela el mecanismo al bot) | Anti-abuso sin señal |
+| 21 | Sin Action Scheduler cargado, el webhook se procesa inline en el request (`do_action` directo) tras persistir | Degradación aceptable; nunca se pierde el evento |
+| 22 | Reintentos HTTP: intento inicial + 3 reintentos (1s/4s/9s); "3 intentos" del spec leído como 3 reintentos | Interpretación más robusta de la ambigüedad |
+| 23 | `insertRow` deriva formatos de wpdb del tipo de cada valor | Los arrays posicionales de formatos se desalineaban con columnas opcionales |
+| 24 | Montos a la API de MP: conversión int→float (`round(amount/100, 2)`) solo en el borde | La regla "nunca floats" aplica a almacenamiento y aritmética de dominio |
+
+### Pendientes de Fase 2
+
+- **Prueba en sandbox de MP**: requiere Access Token de test y registrar la URL de webhooks en el panel. El entorno remoto no tiene credenciales; ejecutar el checklist al desplegar: compra única de prueba → order paid vía webhook; suscripción de prueba con tarjeta de test → active vía webhook.
+
+### Siguiente paso (Fase 3)
+
+1. `PayPalGateway` (Orders v2 + Billing Subscriptions + verify-webhook-signature + OAuth token en transient).
+2. Suscripciones lógicas `annual_hybrid` (crear al pagar order de producto anual).
+3. `RenewalService` (links 30/15/5/0 días) + consumo de payment links pagados.
+4. `DunningService` (emails día 0/3/7 + suspensión) y `ReconciliationService`.
+5. Jobs diarios (`impay_reconcile`, `impay_renewal_reminders`, `impay_dunning_notices`, `impay_expire_stale`, `impay_cleanup`).
 
 ---
 
