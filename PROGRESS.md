@@ -6,9 +6,66 @@
 
 ## Estado actual
 
-- **Fase actual:** Fase 4 — Emails + provisión → **COMPLETADA (código + tests) ✅**
-- **Siguiente paso:** Fase 5 — Admin SPA (React), empezando por Ajustes → Productos → Suscripciones → Dashboard → resto
-- **Gates de calidad:** PHPStan level 8 en verde (0 errores) · PHPUnit 157 tests / 501 aserciones en verde · PHPCS en verde
+- **Fase actual:** Fase 5 — Admin SPA → **COMPLETADA ✅**
+- **Siguiente paso:** Fase 6 — Checkout + Portal (página de checkout, /gracias, portal completo, creación de usuarios WP, recibos)
+- **Gates de calidad:** PHPStan level 8 en verde · PHPUnit 157 tests / 501 aserciones en verde · PHPCS en verde · Frontend: `tsc --noEmit` + build de Vite en verde
+
+---
+
+## Sesión 2026-07-03 (continuación 4) — Fase 5 completa
+
+### Tareas completadas — Backend admin
+
+1. **Repositorios**: listados paginados con filtros (`list()` en subscriptions/customers/orders/payments/webhook_events/logs, composición de SQL con fragmentos literales + placeholders para mantener literal-string en PHPStan), `mrrByCurrency` (mensual completo + anual/12 vía JOIN a prices), `countByStatus`, `upcomingRenewals`, `withPendingManualTasks` (meta LIKE), `monthlyRevenue` (12 meses agrupado), `rowsForExport` (JOIN a customers para datos fiscales), `findByIds` (batch por PK para evitar IN dinámico), `update()` genérico con formatos derivados.
+2. **MetricsService**: MRR, activos, past_due, ingresos del mes, serie 12 meses, próximas renovaciones (30d), tareas manuales, salud de webhooks.
+3. **API admin completa** (`src/Rest/Admin/`, todo con nonce + `manage_impay`):
+   - `ProductsController`: CRUD de productos + precios (los montos de precios son inmutables: se archivan y se crea uno nuevo)
+   - `SubscriptionsController`: listado con filtros/búsqueda, detalle con pagos, acciones cancel (at_period_end o inmediato) / pause / resume (solo si `supports('pause')`) / extend (1–366 días)
+   - `CustomersController`: listado con búsqueda + ficha 360 (suscripciones, pagos, LTV por moneda)
+   - `PaymentsController`: pagos con filtros fecha/gateway/estado + total del rango por moneda, orders, y export CSV contable (separador `;`, montos con coma decimal es-CO, datos fiscales del cliente)
+   - `PaymentLinksController`: cobro manual (precio existente o monto libre)
+   - `WebhookEventsController`: eventos con payload + retry síncrono + tab de logs
+   - `DashboardController`: métricas
+4. **AdminPage** (`src/Admin/`): menú "Imagina Pay" en wp-admin (capability `manage_impay`), render de `#impay-root` full-screen (oculta chrome de WP), boot JSON (restUrl + nonce + gateways), assets encolados desde el manifest de Vite (script `type="module"` + CSS), aviso si el frontend no está compilado.
+
+### Tareas completadas — Frontend (React 18 + TS + Vite)
+
+5. **Scaffolding**: Vite multi-entry (admin/portal/checkout) con manifest para PHP, Tailwind prefijo `impay-` + `important: '#impay-root'`, tokens del design system del spec (fondo #FAFAFA, borde #E4E4E7, acento índigo, estados semánticos, `tabular-nums`), TypeScript estricto.
+6. **Shared**: cliente API (fetch + nonce + errores tipados `{code,message,errors}`), formato es-CO (`Intl.NumberFormat`), tipos espejo del Presenter, primitivas UI estilo shadcn (<200 líneas por archivo): Button/Input/Select/Card/Badge/Spinner/EmptyState/Field, Drawer con Framer Motion (fade+slide 150-200ms), DataTable, Pagination, Toaster (Zustand).
+7. **Admin SPA — las 7 páginas** (routing por hash, sidebar propia):
+   - **Dashboard**: 4 stat cards, gráfico de ingresos 12 meses (Recharts línea), próximas renovaciones, tareas de provisión manual
+   - **Productos**: grid de cards con precios y estado, drawer de creación/edición con provisión (updater_license/hook/manual), precios inline con preview del texto que verá el cliente
+   - **Suscripciones**: tabla con filtros (estado/pasarela/búsqueda) + drawer de detalle: datos, licencia con copiar, pagos, acciones (cancelar al vencer/ya, pausar/reanudar solo MP, extender días)
+   - **Clientes**: tabla con búsqueda + ficha 360 (LTV, suscripciones, pagos)
+   - **Pagos**: filtros fecha/estado/pasarela, total del rango, export CSV
+   - **Webhooks & Logs**: tabs, payload JSON colapsable, retry, indicador de salud por pasarela, logs con niveles
+   - **Ajustes**: tabs MP/PayPal/Emails/Avanzado, toggle sandbox, URL de webhook copiable, secretos enmascarados (el PUT ignora valores `••••`)
+
+### Decisiones tomadas (Fase 5)
+
+| # | Decisión | Razón |
+|---|---|---|
+| 40 | Primitivas UI escritas a mano siguiendo el patrón shadcn (sin CLI ni Radix) | shadcn es copy-paste por diseño; se mantiene la estética y se evita peso extra |
+| 41 | Routing por hash propio (~30 líneas) en lugar de react-router | SPA de admin con 7 rutas planas; menos dependencias |
+| 42 | `findByIds` como lookups por PK en loop (páginas de ≤20 filas) en lugar de `IN()` dinámico | El IN dinámico rompe literal-string de PHPStan; el costo es despreciable |
+| 43 | Precios inmutables en montos (solo archivar/crear) | Integridad histórica de orders/subscriptions que los referencian |
+| 44 | Export CSV con `;` y coma decimal | Convención contable es-CO (Excel Colombia) |
+| 45 | Retry de webhook se procesa síncrono en el request admin | Feedback inmediato en la UI; el evento ya está persistido |
+| 46 | Gráfico del dashboard solo COP (PayPal/USD se lista en las cards) | Mezclar monedas en una línea es engañoso; USD referencial |
+| 47 | Editor de textos de plantillas de email pospuesto a Fase 7 (pulido) | Alcance: los textos viven en código; el hook de personalización existe |
+
+### Pendientes acumulados
+
+- Sandbox MP/PayPal (con credenciales, al desplegar).
+- `frontend/dist/` no se versiona: compilar en despliegue (`npm ci && npm run build`).
+- El bundle admin (~169KB gz por Recharts) es aceptable para wp-admin; el presupuesto de <90KB gz aplica al checkout (Fase 6).
+
+### Siguiente paso (Fase 6 — Checkout + Portal)
+
+1. Página de checkout (`/checkout/{slug}`): rewrite rule + template PHP con JSON inicial del producto, formulario RHF+Zod, selector de método con notas (PSE/Nequi solo pago único), < 90KB gz.
+2. `/gracias` con polling cada 3s (máx 2 min) y estados visuales.
+3. Portal `/mi-cuenta`: shortcode + login, servicios con licencia y CTA de renovación, historial con recibo imprimible, perfil editable.
+4. Creación de usuario WP en la primera compra (rol `impay_customer`) + email de establecer contraseña + endpoints `/me/*`.
 
 ---
 
