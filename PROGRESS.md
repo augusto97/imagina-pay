@@ -6,9 +6,52 @@
 
 ## Estado actual
 
-- **Fase actual:** Fase 2 — Mercado Pago end-to-end → **COMPLETADA (código + tests) ✅** · Pendiente: prueba en sandbox con credenciales reales de MP
-- **Siguiente paso:** Fase 3 — PayPal + suscripciones lógicas (annual_hybrid, RenewalService, DunningService, ReconciliationService, jobs)
-- **Gates de calidad:** PHPStan level 8 en verde (0 errores) · PHPUnit 98 tests / 345 aserciones en verde · PHPCS en verde
+- **Fase actual:** Fase 3 — PayPal + suscripciones lógicas → **COMPLETADA (código + tests) ✅** · Pendiente: sandbox de MP y PayPal con credenciales reales
+- **Siguiente paso:** Fase 4 — Emails + provisión (Mailer, 10 plantillas, ProvisioningService, ImaginaUpdaterClient, hooks documentados)
+- **Gates de calidad:** PHPStan level 8 en verde (0 errores) · PHPUnit 134 tests / 437 aserciones en verde · PHPCS en verde
+
+---
+
+## Sesión 2026-07-03 (continuación 2) — Fase 3 completa
+
+### Tareas completadas
+
+1. **PayPalClient**: OAuth client_credentials con token cacheado en transient (TTL = min(expires_in−5min, 8h), clave separada live/sandbox), base URL por modo, `PayPal-Request-Id` como idempotencia en POST, `verify-webhook-signature` oficial.
+2. **PayPalGateway**: Orders v2 (intent CAPTURE, `custom_id` = external_reference, `invoice_id` único, return a /gracias), Billing Plans creados **perezosamente** al primer uso (Catalog Product + Plan → `gateway_refs.paypal_plan_id` persistido en el precio), Billing Subscriptions con `custom_id` = uuid de la sub, cancel vía `/cancel`, links de pago vía Orders v2. `supports('pause')` = false (spec: pausar es solo MP).
+3. **PayPalWebhookHandler**: `CHECKOUT.ORDER.APPROVED` → captura inmediata (idempotente, tolera ORDER_ALREADY_CAPTURED); `PAYMENT.CAPTURE.COMPLETED/REFUNDED` → pago de order o link (por custom_id); `PAYMENT.SALE.COMPLETED` → renovación (por billing_agreement_id); `BILLING.SUBSCRIPTION.ACTIVATED/CANCELLED/SUSPENDED/EXPIRED` → transiciones; `.PAYMENT.FAILED` → `PaymentService::applyChargeFailure`.
+4. **Suscripciones lógicas annual_hybrid**: al pagarse un order `purchase` de producto annual_hybrid (hook interno `impay_order_paid`), `RenewalService::handleOrderPaid` crea la suscripción lógica (`gateway_sub_id` NULL), fija periodo +1 año y transiciona pending→active (dispara provisión). Idempotente releyendo el order (subscription_id ya vinculado → no-op).
+5. **RenewalService**: job diario de recordatorios — marcas 30/15/5/0 días con catch-up (la menor marca ≥ días restantes, así un job caído no salta avisos), dedupe por periodo en `meta.renewal_notices`, garantiza link de pago abierto (crea en la pasarela de la sub si no existe) y dispara `impay_renewal_reminder`. `applyPaidLink`: order `kind=renewal` + pago vía PaymentService, periodo +1 desde max(now, period_end), reactivación expired→active, link → paid.
+6. **DunningService**: episodios por meta (`dunning.since` + `notices`), avisos día 0/3/7 con catch-up, suspensión (`impay_service_suspend`) en día 7. PaymentService limpia el episodio al aprobarse un cobro. Nunca reintenta cobros (eso es de la pasarela).
+7. **ReconciliationService**: `reconcile()` coteja subs active/past_due/pending contra la API (mapeo de estados MP y PayPal normalizado) y corrige divergencias vía state machine con log; `expireStale()` expira orders pending >48h, links vencidos y anuales +7 días (→ expired + suspensión).
+8. **MaintenanceService**: retención de logs (configurable, default 90d) y webhook_events (180d).
+9. **Jobs (Scheduler)**: registro de los 6 hooks (`impay_process_webhook`, `impay_reconcile` 03:00, `impay_expire_stale` 04:00, `impay_renewal_reminders` 08:00, `impay_dunning_notices` 09:00, `impay_cleanup` semanal 02:00) con agendamiento idempotente en Action Scheduler (`as_has_scheduled_action` guard) y resolución perezosa del container.
+10. **MercadoPagoWebhookHandler**: tercera rama en `payment` — external_reference = uuid de payment link → `applyPaidLink`.
+11. **Tests nuevos (36)**: PayPalGateway (payloads Orders v2/plans/subscriptions, plan lazy vs reutilizado), PayPalWebhookHandler (8 rutas de eventos), RenewalService (sub lógica, link pagado, reactivación de expirada, marcas y dedupe), DunningService (día 0/3/7, catch-up, no repetición), ReconciliationService (divergencias, tolerancia a fallos, expire stale).
+
+### Decisiones tomadas (Fase 3)
+
+| # | Decisión | Razón |
+|---|---|---|
+| 25 | `RenewalService` recibe el Container y resuelve `GatewayRegistry` perezosamente | Los webhook handlers dependen de RenewalService y el registry depende de los handlers: ciclo de construcción |
+| 26 | Renovación por link: el nuevo periodo corre desde `max(now, current_period_end)` (no `period_end + 1 año` literal del spec) | Consistente con PaymentService; el cliente no paga tiempo muerto si renueva tarde. |
+| 27 | Recordatorios y avisos de dunning con catch-up (menor marca ≥ días restantes / todos los días alcanzados) | Un job caído un día no salta avisos |
+| 28 | PayPal `supports('pause')` = false y pause/resume lanzan excepción | Spec sección 7: pausar es "solo MP" (aunque la API de PayPal soporte suspend) |
+| 29 | Captura de PayPal en `CHECKOUT.ORDER.APPROVED` (webhook) además de esperar `PAYMENT.CAPTURE.COMPLETED` | Redundancia intencional del spec; idempotente vía PayPal-Request-Id y dedupe de payments |
+| 30 | `BILLING.SUBSCRIPTION.EXPIRED` → expired (transición active→expired ya prevista) | Cobertura completa de estados PayPal |
+| 31 | El evento de PayPal se procesa desde su payload verificado (sin re-fetch) | A diferencia de MP, la firma cubre el payload completo (verify-webhook-signature) |
+| 32 | Horas de jobs en UTC (03/04/08/09) | Simplicidad; el spec no fija zona. Ajustable en Fase 7 si se quiere hora Bogotá |
+
+### Pendientes acumulados
+
+- Sandbox MP (Fase 2) y sandbox PayPal (Fase 3): compra única, suscripción, renovación por link y webhooks reales — requieren credenciales; checklist al desplegar.
+- Emails de recordatorio/dunning/renovación: los hooks (`impay_renewal_reminder`, `impay_dunning_notice`, `impay_renewal_paid`, `impay_service_suspend`) ya disparan; el Mailer se cuelga en Fase 4.
+
+### Siguiente paso (Fase 4 — Emails + provisión)
+
+1. `Mailer` service sobre `wp_mail` con plantilla HTML única (600px, logo/color configurables) y registro en logs.
+2. Las 10 plantillas transaccionales de la sección 12, colgadas de los hooks existentes.
+3. `ProvisioningService` + `ImaginaUpdaterClient` (licencias) según `provisioning` del producto.
+4. Hooks públicos documentados (`impay_subscription_active`, `impay_provision`, `impay_service_suspend`...).
 
 ---
 
