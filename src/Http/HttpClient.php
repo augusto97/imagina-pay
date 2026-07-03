@@ -12,7 +12,7 @@ use ImaginaPay\Support\Logger;
  * intento inicial + 3 reintentos con esperas de 1s / 4s / 9s ante error
  * de red, 429 o 5xx. Los 4xx no se reintentan (error del request).
  */
-final class HttpClient
+class HttpClient
 {
     private const MAX_RETRIES = 3;
 

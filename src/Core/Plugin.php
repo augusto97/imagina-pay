@@ -30,8 +30,13 @@ use ImaginaPay\Gateways\MercadoPago\MercadoPagoWebhookVerifier;
 use ImaginaPay\Gateways\PayPal\PayPalClient;
 use ImaginaPay\Gateways\PayPal\PayPalGateway;
 use ImaginaPay\Gateways\PayPal\PayPalWebhookHandler;
+use ImaginaPay\Domain\Services\ProvisioningService;
 use ImaginaPay\Http\HttpClient;
+use ImaginaPay\Integrations\ImaginaUpdaterClient;
 use ImaginaPay\Jobs\Scheduler;
+use ImaginaPay\Mail\EmailNotifications;
+use ImaginaPay\Mail\EmailTemplate;
+use ImaginaPay\Mail\Mailer;
 use ImaginaPay\Rest\CheckoutController;
 use ImaginaPay\Rest\HealthController;
 use ImaginaPay\Rest\OrdersController;
@@ -69,6 +74,7 @@ final class Plugin
 
         $container->get(Router::class)->register();
         $container->get(Scheduler::class)->register();
+        $container->get(Hooks::class)->register();
     }
 
     public static function container(): Container
@@ -294,8 +300,44 @@ final class Plugin
             $c->get(Logger::class),
         ));
 
-        // Jobs.
+        // Integraciones y provisión.
+        $c->singleton(ImaginaUpdaterClient::class, static fn (Container $c): ImaginaUpdaterClient => new ImaginaUpdaterClient(
+            $c->get(HttpClient::class),
+            $c->get(Settings::class),
+            $c->get(Logger::class),
+        ));
+
+        $c->singleton(ProvisioningService::class, static fn (Container $c): ProvisioningService => new ProvisioningService(
+            $c->get(ProductRepository::class),
+            $c->get(SubscriptionRepository::class),
+            $c->get(CustomerRepository::class),
+            $c->get(ImaginaUpdaterClient::class),
+            $c->get(Clock::class),
+            $c->get(Logger::class),
+        ));
+
+        // Correo transaccional.
+        $c->singleton(EmailTemplate::class, static fn (Container $c): EmailTemplate => new EmailTemplate(
+            $c->get(Settings::class),
+        ));
+
+        $c->singleton(Mailer::class, static fn (Container $c): Mailer => new Mailer(
+            $c->get(EmailTemplate::class),
+            $c->get(Settings::class),
+            $c->get(Logger::class),
+        ));
+
+        $c->singleton(EmailNotifications::class, static fn (Container $c): EmailNotifications => new EmailNotifications(
+            $c->get(Mailer::class),
+            $c->get(CustomerRepository::class),
+            $c->get(ProductRepository::class),
+            $c->get(SubscriptionRepository::class),
+            $c->get(Clock::class),
+        ));
+
+        // Jobs y listeners de dominio.
         $c->singleton(Scheduler::class, static fn (Container $c): Scheduler => new Scheduler($c));
+        $c->singleton(Hooks::class, static fn (Container $c): Hooks => new Hooks($c));
 
         // REST.
         $c->singleton(Validator::class, static fn (): Validator => new Validator());
