@@ -6,9 +6,35 @@
 
 ## Estado actual
 
-- **Fase actual:** Fase 6 — Checkout + Portal → **COMPLETADA ✅**
-- **Siguiente paso:** Fase 7 — Pulido (performance audit, accesibilidad, textos, QA end-to-end en sandbox, README de despliegue)
-- **Gates de calidad:** PHPStan level 8 en verde · PHPUnit 157 tests / 501 aserciones en verde · PHPCS en verde · Frontend: tsc + Vite en verde · **Checkout ~66KB gz (presupuesto <90KB cumplido)**
+- **Fase actual:** Fase 7 — Pulido → **COMPLETADA ✅** (v1 lista salvo QA en sandbox con credenciales reales)
+- **Siguiente paso:** QA end-to-end en sandbox (checklist en README.md, requiere credenciales de MP/PayPal) → producción. Fase 8 (Wompi + BillingEngine) queda para v2 cuando se decida.
+- **Gates de calidad:** PHPStan level 8 en verde · PHPUnit 157 tests / 501 aserciones en verde · PHPCS en verde · Frontend: tsc + Vite en verde · Checkout ~66KB gz JS+CSS (presupuesto <90KB cumplido)
+
+---
+
+## Sesión 2026-07-03 (continuación 6) — Fase 7 completa
+
+### Tareas completadas
+
+1. **Performance**: la construcción del Router y los ~15 controllers ahora es perezosa dentro de `rest_api_init` — en requests ajenos al plugin solo se registran hooks (0 queries, microsegundos). Los assets ya solo se encolaban en páginas propias (shortcodes) y en wp-admin → Imagina Pay.
+2. **Inter self-hosted**: fuente variable (400–600, subset latin, 48KB woff2) servida desde el bundle con `font-display: swap` — solo carga en páginas propias, sin requests a Google Fonts.
+3. **Accesibilidad**: anillos `focus-visible` en botones (los inputs ya los tenían), labels reales en todos los campos, `aria-label` en iconos de cierre, contraste del design system verificado (texto #18181B / muted #71717A sobre blanco).
+4. **README.md de despliegue**: requisitos, build (composer --no-dev + npm ci && build), configuración, tabla de registro de webhooks por pasarela con topics/eventos exactos, **checklist QA de sandbox de 9 pasos** (compra única, suscripción MP y PayPal, anual híbrido, renovación por link, dunning, reconciliación, portal, admin), guía para añadir pasarelas y política de datos en desinstalación.
+
+### Decisiones tomadas (Fase 7)
+
+| # | Decisión | Razón |
+|---|---|---|
+| 54 | Router/controllers construidos solo en `rest_api_init` | Peso cero real en requests ajenos (sección 1) |
+| 55 | Inter como fuente variable única (48KB) en vez de 3 archivos por peso | Menos requests, mismo resultado tipográfico |
+| 56 | Editor de textos de emails (variables `{{customer_name}}`) queda para v1.1 | Los textos viven en `EmailNotifications`; personalización posible vía código. Documentado |
+| 57 | Datos se conservan al desinstalar (sin uninstall.php destructivo) | Datos transaccionales/contables; borrado manual documentado en README |
+
+### Estado final v1 (Fases 1–7)
+
+- **Backend**: 9 tablas, máquina de estados con hooks, MP + PayPal completos (firmas verificadas, idempotencia doble, reconciliación), suscripciones lógicas anuales con renovación por link, dunning, 6 jobs, 10 emails, provisión (Updater/hook/manual), usuarios WP automáticos.
+- **Frontend**: Admin SPA (7 páginas), checkout <90KB con /gracias, portal de cliente completo. Design system Linear/Vercel del spec.
+- **Pendiente único para producción**: checklist de sandbox (README) con credenciales reales, y registrar las URLs de webhooks en los paneles de MP/PayPal.
 
 ---
 
