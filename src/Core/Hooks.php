@@ -8,6 +8,8 @@ use ImaginaPay\Domain\Entities\Order;
 use ImaginaPay\Domain\Entities\PaymentLink;
 use ImaginaPay\Domain\Entities\Product;
 use ImaginaPay\Domain\Entities\Subscription;
+use ImaginaPay\Domain\Repositories\CustomerRepository;
+use ImaginaPay\Domain\Services\CustomerAccountService;
 use ImaginaPay\Domain\Services\ProvisioningService;
 use ImaginaPay\Gateways\GatewayPayment;
 use ImaginaPay\Mail\EmailNotifications;
@@ -53,6 +55,17 @@ final class Hooks
                 $this->provisioning()->suspend($subscription);
             }
         }, self::PROVISION_PRIORITY);
+
+        // ── Cuenta WP del cliente (prio 12: entre provisión y emails) ──
+        add_action('impay_order_paid', function (mixed $order): void {
+            if ($order instanceof Order) {
+                $customer = $this->container->get(CustomerRepository::class)->find($order->customerId);
+
+                if ($customer !== null) {
+                    $this->container->get(CustomerAccountService::class)->ensureWpUser($customer);
+                }
+            }
+        }, 12);
 
         // ── Emails ───────────────────────────────────────────────────
         add_action('impay_subscription_active', function (mixed $subscription): void {
