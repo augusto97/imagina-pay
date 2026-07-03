@@ -9,6 +9,7 @@ export interface BootData {
   adminUrl?: string;
   userName?: string;
   gateways: string[];
+  version?: string;
 }
 
 let cachedBoot: BootData | null = null;

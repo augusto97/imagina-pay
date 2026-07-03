@@ -63,7 +63,10 @@ export function App() {
           >
             ← Volver a WordPress
           </a>
-          <p className="impay-text-xs impay-text-muted">{boot().userName ?? 'Administrador'}</p>
+          <p className="impay-text-xs impay-text-muted">
+            {boot().userName ?? 'Administrador'}
+            {boot().version ? ` · v${boot().version}` : ''}
+          </p>
         </div>
       </aside>
 

@@ -18,6 +18,18 @@ final class Shortcodes
 {
     public const QUERY_VAR = 'impay_product';
 
+    /**
+     * Base de la URL de venta. Deliberadamente NO es "checkout":
+     * WooCommerce y otros plugins de e-commerce reservan ese slug.
+     */
+    private const CHECKOUT_BASE = 'pagar';
+
+    /**
+     * Al cambiar las reglas de rewrite, subir la versión: se hace flush
+     * automático una sola vez (cubre actualizaciones por zip sin reactivar).
+     */
+    private const REWRITE_VERSION = '2';
+
     public function __construct(
         private readonly ProductRepository $products,
         private readonly PriceRepository $prices,
@@ -28,6 +40,11 @@ final class Shortcodes
     {
         add_action('init', static function (): void {
             self::registerRewrite();
+
+            if (get_option('impay_rewrite_version') !== self::REWRITE_VERSION) {
+                flush_rewrite_rules();
+                update_option('impay_rewrite_version', self::REWRITE_VERSION);
+            }
         });
 
         add_filter('query_vars', static function (array $vars): array {
@@ -44,14 +61,14 @@ final class Shortcodes
 
     /**
      * URL pública de venta de un producto. Con permalinks bonitos usa
-     * /checkout/{slug}/; si no, la página de checkout con query var.
+     * /pagar/{slug}/; si no, la página de checkout con query var.
      */
     public static function checkoutUrl(string $slug): string
     {
         $permalinkStructure = get_option('permalink_structure', '');
 
         if (is_string($permalinkStructure) && $permalinkStructure !== '') {
-            return home_url('/checkout/' . $slug . '/');
+            return home_url('/' . self::CHECKOUT_BASE . '/' . $slug . '/');
         }
 
         $pageId = (int) get_option('impay_page_checkout', 0);
@@ -94,7 +111,7 @@ final class Shortcodes
     }
 
     /**
-     * /checkout/{slug} → página checkout con el producto en query var.
+     * /pagar/{slug} → página checkout con el producto en query var.
      * También la invoca el Activator antes de flush_rewrite_rules().
      */
     public static function registerRewrite(): void
@@ -106,7 +123,7 @@ final class Shortcodes
         }
 
         add_rewrite_rule(
-            '^checkout/([^/]+)/?$',
+            '^' . self::CHECKOUT_BASE . '/([^/]+)/?$',
             sprintf('index.php?page_id=%d&%s=$matches[1]', $pageId, self::QUERY_VAR),
             'top',
         );
@@ -153,7 +170,7 @@ final class Shortcodes
             'nonce' => wp_create_nonce('wp_rest'),
             'gateways' => [],
             'order' => $orderUuid,
-            'portalUrl' => $this->pageUrl('impay_page_portal', '/mi-cuenta/'),
+            'portalUrl' => $this->pageUrl('impay_page_portal', '/portal-cliente/'),
         ];
 
         ViteAssets::enqueue('checkout', 'src/checkout/main.tsx');

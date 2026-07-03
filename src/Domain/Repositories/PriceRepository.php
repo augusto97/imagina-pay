@@ -50,11 +50,33 @@ class PriceRepository extends AbstractRepository
     }
 
     /**
+     * INSERT explícito: wpdb->insert no escapa nombres de columna y
+     * `interval` es palabra reservada de MySQL (rompería la query).
+     *
      * @param array<string, mixed> $data
      */
     public function insert(array $data): int
     {
-        return $this->insertRow($this->table('prices'), $data);
+        $prepared = $this->db->prepare(
+            'INSERT INTO %i (uuid, product_id, currency, amount, `interval`, trial_days, status, created_at, updated_at)'
+            . ' VALUES (%s, %d, %s, %d, %s, %d, %s, %s, %s)',
+            $this->table('prices'),
+            (string) ($data['uuid'] ?? ''),
+            (int) ($data['product_id'] ?? 0),
+            (string) ($data['currency'] ?? ''),
+            (int) ($data['amount'] ?? 0),
+            (string) ($data['interval'] ?? ''),
+            (int) ($data['trial_days'] ?? 0),
+            (string) ($data['status'] ?? 'active'),
+            (string) ($data['created_at'] ?? ''),
+            (string) ($data['updated_at'] ?? ''),
+        );
+
+        if (!is_string($prepared) || $this->db->query($prepared) === false) {
+            throw new \RuntimeException('Error al insertar el precio: ' . $this->db->last_error);
+        }
+
+        return (int) $this->db->insert_id;
     }
 
     /**

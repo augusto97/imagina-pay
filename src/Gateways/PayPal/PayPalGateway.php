@@ -384,7 +384,7 @@ final class PayPalGateway implements GatewayInterface
     {
         $pageId = (int) get_option('impay_page_gracias', 0);
         $url = $pageId > 0 ? get_permalink($pageId) : false;
-        $url = is_string($url) ? $url : home_url('/gracias/');
+        $url = is_string($url) ? $url : home_url('/gracias-compra/');
 
         return $orderUuid === null ? $url : add_query_arg('order', $orderUuid, $url);
     }

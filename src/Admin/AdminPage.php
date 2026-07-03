@@ -46,6 +46,7 @@ final class AdminPage
             'adminUrl' => esc_url_raw(admin_url()),
             'userName' => wp_get_current_user()->display_name,
             'gateways' => ['mercadopago', 'paypal'],
+            'version' => defined('IMPAY_VERSION') ? (string) constant('IMPAY_VERSION') : '',
         ];
 
         // Overlay full-screen: cubre el menú y el contenido de WP; la admin

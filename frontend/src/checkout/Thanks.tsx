@@ -90,7 +90,7 @@ export function ThanksPage() {
             Acabamos de enviarte un email con los detalles y tus accesos.
           </p>
           <a
-            href={portalUrl ?? '/mi-cuenta/'}
+            href={portalUrl ?? '/portal-cliente/'}
             className="impay-mt-6 impay-rounded-control impay-bg-accent impay-px-6 impay-py-3 impay-text-sm impay-font-semibold impay-text-white hover:impay-bg-accent-hover"
           >
             Ir a mi cuenta
@@ -124,7 +124,7 @@ export function ThanksPage() {
             puedes revisar el estado en tu cuenta.
           </p>
           <a
-            href={portalUrl ?? '/mi-cuenta/'}
+            href={portalUrl ?? '/portal-cliente/'}
             className="impay-mt-6 impay-rounded-control impay-border impay-border-line impay-bg-white impay-px-6 impay-py-3 impay-text-sm impay-font-medium hover:impay-bg-canvas"
           >
             Ir a mi cuenta
