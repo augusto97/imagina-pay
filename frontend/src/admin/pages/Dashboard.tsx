@@ -21,6 +21,59 @@ function amounts(list: { formatted: string }[]): string {
   return list.length === 0 ? '$ 0' : list.map((item) => item.formatted).join(' · ');
 }
 
+function OnboardingGuide() {
+  const go = (route: string) => {
+    window.location.hash = '/' + route;
+  };
+
+  const steps = [
+    {
+      title: '1. Configura tus credenciales',
+      detail: 'Conecta Mercado Pago y/o PayPal en Ajustes (puedes empezar en modo sandbox).',
+      action: () => go('ajustes'),
+      cta: 'Ir a Ajustes',
+    },
+    {
+      title: '2. Crea tu primer producto',
+      detail: 'Dale nombre, añade al menos un precio y cambia su estado a "Activo".',
+      action: () => go('productos'),
+      cta: 'Ir a Productos',
+    },
+    {
+      title: '3. Ponlo a la venta',
+      detail: 'Cada producto activo tiene un link de venta (/checkout/…) que puedes compartir, enlazar desde un botón de tu página, o insertar con el shortcode [impay_boton producto="slug"].',
+      action: () => go('productos'),
+      cta: 'Ver links de venta',
+    },
+    {
+      title: '4. Registra los webhooks',
+      detail: 'Copia la URL de webhooks desde Ajustes y regístrala en el panel de cada pasarela para que los pagos se confirmen automáticamente.',
+      action: () => go('ajustes'),
+      cta: 'Copiar URL',
+    },
+  ];
+
+  return (
+    <Card className="impay-mb-6 impay-p-6">
+      <h2 className="impay-text-base impay-font-semibold impay-tracking-tight">Primeros pasos 🚀</h2>
+      <p className="impay-mt-1 impay-text-sm impay-text-muted">
+        Aún no tienes productos. Sigue estos pasos para hacer tu primera venta:
+      </p>
+      <div className="impay-mt-5 impay-grid impay-grid-cols-2 impay-gap-4 max-lg:impay-grid-cols-1">
+        {steps.map((step) => (
+          <div key={step.title} className="impay-rounded-control impay-border impay-border-line impay-p-4">
+            <p className="impay-text-sm impay-font-semibold">{step.title}</p>
+            <p className="impay-mt-1 impay-text-sm impay-text-muted">{step.detail}</p>
+            <button onClick={step.action} className="impay-mt-3 impay-text-sm impay-font-medium impay-text-accent hover:impay-underline">
+              {step.cta} →
+            </button>
+          </div>
+        ))}
+      </div>
+    </Card>
+  );
+}
+
 export function DashboardPage() {
   const { data, isLoading } = useQuery({
     queryKey: ['dashboard'],
@@ -34,6 +87,8 @@ export function DashboardPage() {
   return (
     <div>
       <PageHeader title="Dashboard" />
+
+      {data.products_count === 0 && <OnboardingGuide />}
 
       <div className="impay-grid impay-grid-cols-4 impay-gap-4 max-lg:impay-grid-cols-2">
         <StatCard label="MRR estimado" value={amounts(data.mrr)} />

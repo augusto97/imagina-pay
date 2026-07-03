@@ -24,6 +24,7 @@ export interface Product {
   status: 'active' | 'archived' | 'draft';
   provisioning: { type?: string; updater_product_id?: number } | null;
   prices: Price[];
+  checkout_url?: string;
   created_at: string;
 }
 
@@ -104,6 +105,7 @@ export interface CurrencyAmount {
 }
 
 export interface DashboardMetrics {
+  products_count: number;
   mrr: CurrencyAmount[];
   active_subscriptions: number;
   past_due_subscriptions: number;

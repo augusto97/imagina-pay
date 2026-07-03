@@ -11,6 +11,7 @@ use ImaginaPay\Domain\Enums\ProductType;
 use ImaginaPay\Domain\Repositories\PriceRepository;
 use ImaginaPay\Domain\Repositories\ProductRepository;
 use ImaginaPay\Exceptions\NotFoundException;
+use ImaginaPay\Frontend\Shortcodes;
 use ImaginaPay\Exceptions\ValidationException;
 use ImaginaPay\Rest\AbstractController;
 use ImaginaPay\Rest\Middleware\CapabilityMiddleware;
@@ -81,7 +82,9 @@ final class ProductsController extends AbstractController
         $items = [];
 
         foreach ($this->products->all() as $product) {
-            $items[] = Presenter::product($product, $this->prices->findByProduct($product->id));
+            $item = Presenter::product($product, $this->prices->findByProduct($product->id));
+            $item['checkout_url'] = Shortcodes::checkoutUrl($product->slug);
+            $items[] = $item;
         }
 
         return ['items' => $items];
