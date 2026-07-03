@@ -24,6 +24,9 @@ final class Activator
         self::createPages();
 
         update_option('impay_db_version', self::DB_VERSION);
+
+        // La regla /checkout/{slug} debe existir antes del flush.
+        \ImaginaPay\Frontend\Shortcodes::registerRewrite();
         flush_rewrite_rules();
     }
 

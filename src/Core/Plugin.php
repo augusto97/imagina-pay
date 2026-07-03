@@ -15,6 +15,7 @@ use ImaginaPay\Domain\Repositories\SubscriptionRepository;
 use ImaginaPay\Domain\Repositories\WebhookEventRepository;
 use ImaginaPay\Admin\AdminPage;
 use ImaginaPay\Domain\Services\CheckoutService;
+use ImaginaPay\Domain\Services\CustomerAccountService;
 use ImaginaPay\Domain\Services\DunningService;
 use ImaginaPay\Domain\Services\MaintenanceService;
 use ImaginaPay\Domain\Services\MetricsService;
@@ -29,6 +30,7 @@ use ImaginaPay\Gateways\MercadoPago\MercadoPagoClient;
 use ImaginaPay\Gateways\MercadoPago\MercadoPagoGateway;
 use ImaginaPay\Gateways\MercadoPago\MercadoPagoWebhookHandler;
 use ImaginaPay\Gateways\MercadoPago\MercadoPagoWebhookVerifier;
+use ImaginaPay\Frontend\Shortcodes;
 use ImaginaPay\Gateways\PayPal\PayPalClient;
 use ImaginaPay\Gateways\PayPal\PayPalGateway;
 use ImaginaPay\Gateways\PayPal\PayPalWebhookHandler;
@@ -49,6 +51,9 @@ use ImaginaPay\Rest\Admin\WebhookEventsController as AdminWebhookEventsControlle
 use ImaginaPay\Rest\CheckoutController;
 use ImaginaPay\Rest\HealthController;
 use ImaginaPay\Rest\OrdersController;
+use ImaginaPay\Rest\Portal\LoginController;
+use ImaginaPay\Rest\Portal\PortalController;
+use ImaginaPay\Rest\Portal\ReceiptController;
 use ImaginaPay\Rest\Router;
 use ImaginaPay\Rest\SettingsController;
 use ImaginaPay\Rest\Validator;
@@ -84,6 +89,7 @@ final class Plugin
         $container->get(Router::class)->register();
         $container->get(Scheduler::class)->register();
         $container->get(Hooks::class)->register();
+        $container->get(Shortcodes::class)->register();
 
         if (is_admin()) {
             $container->get(AdminPage::class)->register();
@@ -455,6 +461,41 @@ final class Plugin
 
         $c->singleton(AdminPage::class, static fn (): AdminPage => new AdminPage());
 
+        // Portal cliente y páginas propias.
+        $c->singleton(CustomerAccountService::class, static fn (Container $c): CustomerAccountService => new CustomerAccountService(
+            $c->get(CustomerRepository::class),
+            $c->get(EmailNotifications::class),
+            $c->get(Clock::class),
+            $c->get(Logger::class),
+        ));
+
+        $c->singleton(Shortcodes::class, static fn (Container $c): Shortcodes => new Shortcodes(
+            $c->get(ProductRepository::class),
+            $c->get(PriceRepository::class),
+        ));
+
+        $c->singleton(PortalController::class, static fn (Container $c): PortalController => new PortalController(
+            $c->get(Logger::class),
+            $c->get(CustomerRepository::class),
+            $c->get(SubscriptionRepository::class),
+            $c->get(PaymentRepository::class),
+            $c->get(PaymentLinkRepository::class),
+            $c->get(ProductRepository::class),
+            $c->get(SubscriptionService::class),
+            $c->get(Validator::class),
+        ));
+
+        $c->singleton(ReceiptController::class, static fn (Container $c): ReceiptController => new ReceiptController(
+            $c->get(Logger::class),
+            $c->get(PaymentRepository::class),
+            $c->get(CustomerRepository::class),
+        ));
+
+        $c->singleton(LoginController::class, static fn (Container $c): LoginController => new LoginController(
+            $c->get(Logger::class),
+            $c->get(Validator::class),
+        ));
+
         $c->singleton(Router::class, static fn (Container $c): Router => new Router([
             $c->get(HealthController::class),
             $c->get(SettingsController::class),
@@ -468,6 +509,9 @@ final class Plugin
             $c->get(AdminPaymentLinksController::class),
             $c->get(AdminWebhookEventsController::class),
             $c->get(AdminDashboardController::class),
+            $c->get(PortalController::class),
+            $c->get(ReceiptController::class),
+            $c->get(LoginController::class),
         ]));
     }
 }
