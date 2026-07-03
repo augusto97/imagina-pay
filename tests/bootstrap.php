@@ -14,3 +14,20 @@ if (!class_exists('wpdb')) {
         public int $insert_id = 0;
     }
 }
+
+// Stub mínimo de WP_Error para probar reintentos del HttpClient.
+if (!class_exists('WP_Error')) {
+    class WP_Error
+    {
+        public function __construct(
+            private readonly string $code = '',
+            private readonly string $message = '',
+        ) {
+        }
+
+        public function get_error_message(): string
+        {
+            return $this->message;
+        }
+    }
+}
