@@ -58,6 +58,26 @@ class PriceRepository extends AbstractRepository
     }
 
     /**
+     * Guarda referencias de planes creados perezosamente en las pasarelas
+     * (p. ej. paypal_plan_id).
+     *
+     * @param array<string, mixed> $gatewayRefs
+     */
+    public function updateGatewayRefs(int $id, array $gatewayRefs, \DateTimeImmutable $updatedAt): void
+    {
+        $this->db->update(
+            $this->table('prices'),
+            [
+                'gateway_refs' => (string) wp_json_encode($gatewayRefs),
+                'updated_at' => $this->formatDate($updatedAt),
+            ],
+            ['id' => $id],
+            ['%s', '%s'],
+            ['%d'],
+        );
+    }
+
+    /**
      * @param array<string, mixed> $row
      */
     private function mapRow(array $row): Price

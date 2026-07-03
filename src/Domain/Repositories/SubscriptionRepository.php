@@ -59,6 +59,58 @@ class SubscriptionRepository extends AbstractRepository
     }
 
     /**
+     * @return list<Subscription>
+     */
+    public function findByStatus(SubscriptionStatus $status, int $limit = 500): array
+    {
+        $prepared = $this->db->prepare(
+            'SELECT * FROM %i WHERE status = %s ORDER BY id ASC LIMIT %d',
+            $this->table('subscriptions'),
+            $status->value,
+            $limit,
+        );
+
+        return $this->mapRows($prepared);
+    }
+
+    /**
+     * Suscripciones con motor en la pasarela que deben cotejarse a diario.
+     *
+     * @return list<Subscription>
+     */
+    public function findForReconciliation(int $limit = 500): array
+    {
+        $prepared = $this->db->prepare(
+            'SELECT * FROM %i WHERE gateway_sub_id IS NOT NULL'
+            . " AND status IN ('active', 'past_due', 'pending') ORDER BY id ASC LIMIT %d",
+            $this->table('subscriptions'),
+            $limit,
+        );
+
+        return $this->mapRows($prepared);
+    }
+
+    /**
+     * Suscripciones lógicas (annual_hybrid, gateway_sub_id NULL) activas
+     * cuyo periodo vence antes de la fecha dada.
+     *
+     * @return list<Subscription>
+     */
+    public function findLogicalExpiring(\DateTimeImmutable $before, int $limit = 500): array
+    {
+        $prepared = $this->db->prepare(
+            'SELECT * FROM %i WHERE gateway_sub_id IS NULL AND status = %s'
+            . ' AND current_period_end IS NOT NULL AND current_period_end <= %s ORDER BY current_period_end ASC LIMIT %d',
+            $this->table('subscriptions'),
+            SubscriptionStatus::Active->value,
+            $this->formatDate($before),
+            $limit,
+        );
+
+        return $this->mapRows($prepared);
+    }
+
+    /**
      * @param array<string, mixed> $data
      */
     public function insert(array $data): int
@@ -66,6 +118,23 @@ class SubscriptionRepository extends AbstractRepository
         return $this->insertRow(
             $this->table('subscriptions'),
             $data);
+    }
+
+    /**
+     * @param array<string, mixed> $meta
+     */
+    public function updateMeta(int $id, array $meta, \DateTimeImmutable $updatedAt): void
+    {
+        $this->db->update(
+            $this->table('subscriptions'),
+            [
+                'meta' => (string) wp_json_encode($meta),
+                'updated_at' => $this->formatDate($updatedAt),
+            ],
+            ['id' => $id],
+            ['%s', '%s'],
+            ['%d'],
+        );
     }
 
     /**
@@ -165,6 +234,25 @@ class SubscriptionRepository extends AbstractRepository
             ['%d', '%s'],
             ['%d'],
         );
+    }
+
+    /**
+     * @return list<Subscription>
+     */
+    private function mapRows(mixed $preparedSql): array
+    {
+        if (!is_string($preparedSql)) {
+            return [];
+        }
+
+        /** @var array<int, array<string, mixed>>|null $rows */
+        $rows = $this->db->get_results($preparedSql, ARRAY_A);
+
+        if (!is_array($rows)) {
+            return [];
+        }
+
+        return array_values(array_map(fn (array $row): Subscription => $this->mapRow($row), $rows));
     }
 
     /**

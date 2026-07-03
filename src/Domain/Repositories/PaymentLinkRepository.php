@@ -46,6 +46,28 @@ class PaymentLinkRepository extends AbstractRepository
             $data);
     }
 
+    /**
+     * Expira links abiertos cuya fecha límite ya pasó. Devuelve filas afectadas.
+     */
+    public function expireStale(\DateTimeImmutable $now): int
+    {
+        $prepared = $this->db->prepare(
+            'UPDATE %i SET status = %s WHERE status = %s AND expires_at IS NOT NULL AND expires_at < %s',
+            $this->table('payment_links'),
+            PaymentLinkStatus::Expired->value,
+            PaymentLinkStatus::Open->value,
+            $this->formatDate($now),
+        );
+
+        if (!is_string($prepared)) {
+            return 0;
+        }
+
+        $affected = $this->db->query($prepared);
+
+        return is_int($affected) ? $affected : 0;
+    }
+
     public function updateStatus(int $id, PaymentLinkStatus $status, ?int $paidOrderId = null): void
     {
         $data = ['status' => $status->value];

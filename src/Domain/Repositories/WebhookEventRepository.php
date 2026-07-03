@@ -93,6 +93,26 @@ class WebhookEventRepository extends AbstractRepository
         );
     }
 
+    /**
+     * Retención: borra eventos con más de N días (job impay_cleanup).
+     */
+    public function deleteOlderThan(\DateTimeImmutable $threshold): int
+    {
+        $prepared = $this->db->prepare(
+            'DELETE FROM %i WHERE received_at < %s',
+            $this->table('webhook_events'),
+            $this->formatDate($threshold),
+        );
+
+        if (!is_string($prepared)) {
+            return 0;
+        }
+
+        $deleted = $this->db->query($prepared);
+
+        return is_int($deleted) ? $deleted : 0;
+    }
+
     public function markFailed(int $id, string $error): void
     {
         $prepared = $this->db->prepare(

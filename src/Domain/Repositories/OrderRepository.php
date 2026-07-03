@@ -116,6 +116,30 @@ class OrderRepository extends AbstractRepository
     }
 
     /**
+     * Expira orders pendientes creados antes del umbral (>48h). Devuelve
+     * el número de filas afectadas.
+     */
+    public function expireStale(\DateTimeImmutable $threshold, \DateTimeImmutable $now): int
+    {
+        $prepared = $this->db->prepare(
+            'UPDATE %i SET status = %s, updated_at = %s WHERE status = %s AND created_at < %s',
+            $this->table('orders'),
+            OrderStatus::Expired->value,
+            $this->formatDate($now),
+            OrderStatus::Pending->value,
+            $this->formatDate($threshold),
+        );
+
+        if (!is_string($prepared)) {
+            return 0;
+        }
+
+        $affected = $this->db->query($prepared);
+
+        return is_int($affected) ? $affected : 0;
+    }
+
+    /**
      * @param array<string, mixed> $row
      */
     private function mapRow(array $row): Order
