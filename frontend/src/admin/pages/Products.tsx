@@ -17,12 +17,19 @@ const typeLabels: Record<string, string> = {
 
 export function ProductsPage() {
   const queryClient = useQueryClient();
-  const [editing, setEditing] = useState<Product | 'new' | null>(null);
+  // Se guarda el uuid (no el objeto): el drawer siempre lee el producto
+  // fresco del cache y refleja al instante los precios recién creados.
+  const [editing, setEditing] = useState<string | 'new' | null>(null);
 
   const { data, isLoading } = useQuery({
     queryKey: ['products'],
     queryFn: () => api.get<{ items: Product[] }>('admin/products'),
   });
+
+  const editingProduct =
+    editing !== null && editing !== 'new'
+      ? (data?.items ?? []).find((candidate) => candidate.uuid === editing) ?? null
+      : null;
 
   const archive = useMutation({
     mutationFn: (product: Product) =>
@@ -134,7 +141,7 @@ export function ProductsPage() {
               )}
 
               <div className="impay-mt-4 impay-flex impay-gap-2 impay-border-t impay-border-line impay-pt-4">
-                <Button variant="secondary" onClick={() => setEditing(product)}>
+                <Button variant="secondary" onClick={() => setEditing(product.uuid)}>
                   Editar
                 </Button>
                 <Button variant="ghost" onClick={() => archive.mutate(product)}>
@@ -146,11 +153,7 @@ export function ProductsPage() {
         </div>
       )}
 
-      <ProductDrawer
-        product={editing === 'new' ? null : editing}
-        open={editing !== null}
-        onClose={() => setEditing(null)}
-      />
+      <ProductDrawer product={editingProduct} open={editing !== null} onClose={() => setEditing(null)} />
     </div>
   );
 }

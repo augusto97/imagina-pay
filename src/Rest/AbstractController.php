@@ -56,9 +56,17 @@ abstract class AbstractController
                 'message' => $exception->getMessage(),
             ]);
 
+            $message = 'Ocurrió un error inesperado. Intenta de nuevo.';
+
+            // A los administradores se les muestra el error real: depurar a
+            // ciegas es peor que exponerles el detalle (ya está en los logs).
+            if (function_exists('current_user_can') && current_user_can('manage_impay')) {
+                $message = sprintf('Error interno: %s', $exception->getMessage());
+            }
+
             return new \WP_REST_Response([
                 'code' => 'impay_error_interno',
-                'message' => 'Ocurrió un error inesperado. Intenta de nuevo.',
+                'message' => $message,
             ], 500);
         }
     }
