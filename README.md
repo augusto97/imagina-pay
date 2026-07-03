@@ -13,7 +13,7 @@ en [`docs/HOOKS.md`](docs/HOOKS.md).
 
 - PHP **8.1+** · WordPress **6.4+** · MySQL/MariaDB **10.4+**
 - Node 20+ (solo para compilar el frontend)
-- Permalinks activos (la ruta `/checkout/{slug}` usa rewrite rules)
+- Permalinks activos (la ruta `/pagar/{slug}` usa rewrite rules)
 
 ## Instalación / despliegue
 
@@ -48,7 +48,7 @@ y jamás se muestran completas.
 ## Cómo vender un producto
 
 El plugin no lista productos en el sitio: cada producto **activo** tiene su
-propia página de pago en `/checkout/{slug}` (o `?impay_product={slug}` sin
+propia página de pago en `/pagar/{slug}` (o `?impay_product={slug}` sin
 permalinks). Para ponerlo a la venta:
 
 1. **Imagina Pay → Productos → Nuevo producto**: nombre, tipo, al menos un
@@ -61,8 +61,8 @@ permalinks). Para ponerlo a la venta:
    [impay_boton producto="vps-cloud-2gb" texto="Comprar ahora" color="#4F46E5"]
    ```
 
-El flujo completo (pago → confirmación en /gracias → email → provisión →
-portal del cliente en /mi-cuenta) es automático una vez registrados los
+El flujo completo (pago → confirmación → email → provisión → portal del
+cliente) es automático una vez registrados los
 webhooks.
 
 ### Registro de webhooks

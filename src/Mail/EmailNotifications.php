@@ -353,6 +353,6 @@ class EmailNotifications
         $pageId = (int) get_option('impay_page_portal', 0);
         $url = $pageId > 0 ? get_permalink($pageId) : false;
 
-        return is_string($url) ? $url : home_url('/mi-cuenta/');
+        return is_string($url) ? $url : home_url('/portal-cliente/');
     }
 }

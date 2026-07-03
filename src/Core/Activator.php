@@ -239,15 +239,16 @@ final class Activator
     }
 
     /**
-     * Crea las 3 páginas propias con shortcodes placeholder y guarda sus IDs.
-     * El render real de cada SPA llega en las Fases 5-6.
+     * Crea las 3 páginas propias con sus shortcodes y guarda sus IDs.
+     * Slugs deliberadamente sin conflicto con WooCommerce y similares
+     * ("checkout" y "mi-cuenta" son slugs reservados por WC).
      */
     private static function createPages(): void
     {
         $pages = [
-            'impay_page_checkout' => ['slug' => 'checkout', 'title' => 'Checkout', 'content' => '[impay_checkout]'],
-            'impay_page_gracias' => ['slug' => 'gracias', 'title' => 'Gracias por tu compra', 'content' => '[impay_gracias]'],
-            'impay_page_portal' => ['slug' => 'mi-cuenta', 'title' => 'Mi cuenta', 'content' => '[impay_portal]'],
+            'impay_page_checkout' => ['slug' => 'pagar', 'title' => 'Pagar', 'content' => '[impay_checkout]'],
+            'impay_page_gracias' => ['slug' => 'gracias-compra', 'title' => 'Gracias por tu compra', 'content' => '[impay_gracias]'],
+            'impay_page_portal' => ['slug' => 'portal-cliente', 'title' => 'Portal de cliente', 'content' => '[impay_portal]'],
         ];
 
         foreach ($pages as $option => $page) {
