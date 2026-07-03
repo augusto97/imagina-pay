@@ -6,9 +6,53 @@
 
 ## Estado actual
 
-- **Fase actual:** Fase 5 — Admin SPA → **COMPLETADA ✅**
-- **Siguiente paso:** Fase 6 — Checkout + Portal (página de checkout, /gracias, portal completo, creación de usuarios WP, recibos)
-- **Gates de calidad:** PHPStan level 8 en verde · PHPUnit 157 tests / 501 aserciones en verde · PHPCS en verde · Frontend: `tsc --noEmit` + build de Vite en verde
+- **Fase actual:** Fase 6 — Checkout + Portal → **COMPLETADA ✅**
+- **Siguiente paso:** Fase 7 — Pulido (performance audit, accesibilidad, textos, QA end-to-end en sandbox, README de despliegue)
+- **Gates de calidad:** PHPStan level 8 en verde · PHPUnit 157 tests / 501 aserciones en verde · PHPCS en verde · Frontend: tsc + Vite en verde · **Checkout ~66KB gz (presupuesto <90KB cumplido)**
+
+---
+
+## Sesión 2026-07-03 (continuación 5) — Fase 6 completa
+
+### Tareas completadas — Backend
+
+1. **CustomerAccountService**: crea el usuario WP en la primera compra (hook `impay_order_paid`, prioridad 12 — entre provisión y emails): rol `impay_customer`, contraseña aleatoria, si el email ya tiene usuario WP solo vincula, `get_password_reset_key` + email "Crea tu contraseña" (plantilla de Fase 4). Idempotente por `wp_user_id`.
+2. **PortalController** (`/me/*`): perfil GET/PUT (datos fiscales), suscripciones con link de renovación abierto embebido, cancelación (siempre `cancel_at_period_end` + encuesta opcional de motivo → log), pagos paginados, links abiertos. Autorización: usuario logueado + customer por `wp_user_id`; cada recurso verifica pertenencia.
+3. **ReceiptController**: `GET /me/payments/{uuid}/receipt` → HTML imprimible (logo/nombre del sitio, datos fiscales, total, botón imprimir, nota "no constituye factura DIAN").
+4. **LoginController**: `POST /portal/login` vía `wp_signon` con rate limit 5/10min (anti fuerza bruta); devuelve nonce fresco.
+5. **Shortcodes** (`src/Frontend/`): `[impay_checkout]` (imprime JSON del producto inline para render sin fetch + monta la entry), `[impay_gracias]`, `[impay_portal]`. Assets encolados desde el manifest de Vite **solo cuando el shortcode se renderiza** (cero impacto en el resto del sitio). Rewrite `/checkout/{slug}` → página checkout con query var `impay_product`; la regla se registra también en la activación antes del `flush_rewrite_rules()`.
+
+### Tareas completadas — Frontend
+
+6. **Checkout** (entry ligera, sin react-query ni framer-motion): 2 columnas (resumen con features/precio/badge de seguridad + formulario), validación Zod con mensajes en español, honeypot invisible, selector de método con notas del spec (MP: "solo tarjeta" en suscripción, "tarjeta/PSE/Nequi" en único; PayPal USD), selector de plan si hay varios precios, redirección a la pasarela. **~66KB gz total**.
+7. **/gracias**: polling cada 3s (máx. 2 min) con 4 estados: confirmando (spinner), pagado (check + CTA "Ir a mi cuenta" + "te enviamos un email"), fallido (mensaje amable + reintentar), timeout (sigue procesando + CTA portal).
+8. **Portal completo**: login propio estilizado (si no hay sesión), header con saludo y botón de soporte (mailto), tabs Mis servicios / Pagos / Mi perfil:
+   - Servicios: cards con estado, "Se renueva/Vence el {fecha}", licencia con copiar, **banda ámbar con CTA "Renovar ahora"** si hay link abierto, cancelación con confirmación inline + motivo opcional
+   - Pagos: historial paginado con "Ver recibo" (HTML imprimible en pestaña nueva)
+   - Perfil: datos personales y fiscales editables
+
+### Decisiones tomadas (Fase 6)
+
+| # | Decisión | Razón |
+|---|---|---|
+| 48 | Usuario WP creado al **pagar** (impay_order_paid), no al iniciar checkout | Evita usuarios huérfanos de checkouts abandonados; "en la primera compra" del spec |
+| 49 | La entry checkout comparte bundle con /gracias y excluye react-query/framer | Presupuesto <90KB gz; el polling es un setTimeout simple |
+| 50 | Login del portal con `wp_signon` vía endpoint propio (rate limited) | Spec 11: "login propio estilizado"; link mágico queda para v1.1 |
+| 51 | Recibo como respuesta text/html del REST (con nonce en query) | Imprimible en pestaña nueva sin ruta extra ni template del theme |
+| 52 | Cancelación desde el portal siempre `at_period_end` | Spec 8.5: el cliente conserva el servicio hasta el fin del periodo |
+| 53 | Password en login se valida como requerido pero se pasa crudo a wp_signon | sanitize_text_field alteraría contraseñas legítimas |
+
+### Pendientes acumulados
+
+- Sandbox MP/PayPal end-to-end (con credenciales, checklist al desplegar).
+- Fase 7: Inter self-hosted, accesibilidad, editor de textos de emails, README de despliegue, QA.
+
+### Siguiente paso (Fase 7 — Pulido)
+
+1. README de despliegue (requisitos, composer/npm build, registro de webhooks, checklist sandbox).
+2. Performance audit: verificar presupuesto de queries/tiempo en páginas ajenas, assets solo en páginas propias (ya cumplido por diseño).
+3. Accesibilidad básica (focus rings, labels, contraste) y revisión de textos.
+4. QA end-to-end en sandbox de ambas pasarelas.
 
 ---
 
