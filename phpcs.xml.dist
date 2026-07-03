@@ -1,0 +1,92 @@
+<?xml version="1.0"?>
+<ruleset name="ImaginaPay">
+    <description>Imagina Pay: WordPress-Extra (seguridad/DB/i18n) compatible con PSR-4 y tipado moderno.</description>
+
+    <file>src</file>
+    <file>imagina-pay.php</file>
+
+    <arg name="extensions" value="php"/>
+    <arg name="colors"/>
+    <arg value="sp"/>
+
+    <config name="minimum_wp_version" value="6.4"/>
+
+    <rule ref="WordPress-Extra">
+        <!-- PSR-4: nombres de archivo = nombre de clase, sin prefijo class-. -->
+        <exclude name="WordPress.Files.FileName"/>
+        <!-- PSR-12/camelCase en código propio orientado a objetos. -->
+        <exclude name="WordPress.NamingConventions.ValidVariableName"/>
+        <exclude name="WordPress.NamingConventions.ValidFunctionName"/>
+        <exclude name="PEAR.NamingConventions.ValidClassName"/>
+        <!-- Estilo de formato PSR-12 (indentación con espacios, sin yoda, llaves). -->
+        <exclude name="Generic.WhiteSpace.DisallowSpaceIndent"/>
+        <exclude name="WordPress.WhiteSpace.ControlStructureSpacing"/>
+        <exclude name="WordPress.WhiteSpace.OperatorSpacing"/>
+        <exclude name="WordPress.PHP.YodaConditions"/>
+        <exclude name="Generic.Functions.OpeningFunctionBraceKernighanRitchie"/>
+        <exclude name="Generic.Classes.OpeningBraceSameLine"/>
+        <exclude name="Squiz.Functions.MultiLineFunctionDeclaration.BraceOnSameLine"/>
+        <exclude name="Universal.Operators.DisallowShortTernary"/>
+        <exclude name="Squiz.ControlStructures.ControlSignature"/>
+        <exclude name="Generic.ControlStructures.InlineControlStructure"/>
+        <exclude name="Generic.Formatting.MultipleStatementAlignment"/>
+        <exclude name="WordPress.Arrays.ArrayIndentation"/>
+        <exclude name="WordPress.Arrays.ArrayDeclarationSpacing"/>
+        <exclude name="WordPress.Arrays.MultipleStatementAlignment"/>
+        <exclude name="NormalizedArrays.Arrays.CommaAfterLast"/>
+        <exclude name="Universal.Arrays.DisallowShortArraySyntax"/>
+        <exclude name="Generic.Arrays.DisallowShortArraySyntax"/>
+        <exclude name="Squiz.Commenting"/>
+        <exclude name="Generic.Commenting"/>
+        <exclude name="PSR2.Classes.PropertyDeclaration.Multiple"/>
+        <exclude name="Universal.NamingConventions.NoReservedKeywordParameterNames"/>
+        <exclude name="PEAR.Functions.FunctionCallSignature"/>
+        <exclude name="Squiz.Functions.FunctionDeclarationArgumentSpacing"/>
+        <exclude name="NormalizedArrays.Arrays.ArrayBraceSpacing"/>
+        <exclude name="WordPress.Arrays.ArrayKeySpacingRestrictions"/>
+        <exclude name="Generic.WhiteSpace.ArbitraryParenthesesSpacing"/>
+        <exclude name="WordPress.WhiteSpace.CastStructureSpacing"/>
+        <!-- Los mensajes de excepción salen por REST como JSON, no como HTML. -->
+        <exclude name="WordPress.Security.EscapeOutput.ExceptionNotEscaped"/>
+        <!-- Parámetros exigidos por interfaces (Middleware, Logger nulo). -->
+        <exclude name="Generic.CodeAnalysis.UnusedFunctionParameter"/>
+    </rule>
+
+    <!-- base64 en Crypto es codificación de binario cifrado, no ofuscación. -->
+    <rule ref="WordPress.PHP.DiscouragedPHPFunctions.obfuscation_base64_encode">
+        <exclude-pattern>*/src/Support/Crypto\.php</exclude-pattern>
+    </rule>
+    <rule ref="WordPress.PHP.DiscouragedPHPFunctions.obfuscation_base64_decode">
+        <exclude-pattern>*/src/Support/Crypto\.php</exclude-pattern>
+    </rule>
+
+    <!-- Text domain del plugin. -->
+    <rule ref="WordPress.WP.I18n">
+        <properties>
+            <property name="text_domain" type="array">
+                <element value="imagina-pay"/>
+            </property>
+        </properties>
+    </rule>
+
+    <!-- Capability propia registrada en Activator::registerRolesAndCaps(). -->
+    <rule ref="WordPress.WP.Capabilities">
+        <properties>
+            <property name="custom_capabilities" type="array">
+                <element value="manage_impay"/>
+                <element value="impay_customer"/>
+            </property>
+        </properties>
+    </rule>
+
+    <!-- Prefijos propios para el espacio global de WP. -->
+    <rule ref="WordPress.NamingConventions.PrefixAllGlobals">
+        <properties>
+            <property name="prefixes" type="array">
+                <element value="impay"/>
+                <element value="ImaginaPay"/>
+                <element value="IMPAY"/>
+            </property>
+        </properties>
+    </rule>
+</ruleset>
