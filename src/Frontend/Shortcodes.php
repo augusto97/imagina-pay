@@ -39,6 +39,58 @@ final class Shortcodes
         add_shortcode('impay_checkout', fn (): string => $this->renderCheckout());
         add_shortcode('impay_gracias', fn (): string => $this->renderThanks());
         add_shortcode('impay_portal', fn (): string => $this->renderPortal());
+        add_shortcode('impay_boton', fn (array|string $atts): string => $this->renderBuyButton(is_array($atts) ? $atts : []));
+    }
+
+    /**
+     * URL pública de venta de un producto. Con permalinks bonitos usa
+     * /checkout/{slug}/; si no, la página de checkout con query var.
+     */
+    public static function checkoutUrl(string $slug): string
+    {
+        $permalinkStructure = get_option('permalink_structure', '');
+
+        if (is_string($permalinkStructure) && $permalinkStructure !== '') {
+            return home_url('/checkout/' . $slug . '/');
+        }
+
+        $pageId = (int) get_option('impay_page_checkout', 0);
+        $base = $pageId > 0 ? get_permalink($pageId) : false;
+
+        return add_query_arg(self::QUERY_VAR, $slug, is_string($base) ? $base : home_url('/'));
+    }
+
+    /**
+     * [impay_boton producto="slug" texto="Comprar ahora" color="#4F46E5"]
+     * Botón de compra insertable en cualquier página o builder. Cero assets:
+     * un solo anchor con estilos inline.
+     *
+     * @param array<string|int, string> $atts
+     */
+    private function renderBuyButton(array $atts): string
+    {
+        $slug = sanitize_title((string) ($atts['producto'] ?? $atts['slug'] ?? ''));
+
+        if ($slug === '') {
+            return '';
+        }
+
+        $product = $this->products->findBySlug($slug);
+
+        if ($product === null || $product->status->value !== 'active') {
+            return '';
+        }
+
+        $text = sanitize_text_field((string) ($atts['texto'] ?? 'Comprar ahora'));
+        $color = sanitize_hex_color((string) ($atts['color'] ?? '')) ?: '#4F46E5';
+
+        return sprintf(
+            '<a href="%s" style="display:inline-block;padding:13px 30px;border-radius:10px;background:%s;'
+            . 'color:#ffffff;font-weight:600;font-size:15px;text-decoration:none;line-height:1;">%s</a>',
+            esc_url(self::checkoutUrl($slug)),
+            esc_attr($color),
+            esc_html($text),
+        );
     }
 
     /**

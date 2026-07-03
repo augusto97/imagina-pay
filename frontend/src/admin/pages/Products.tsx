@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Plus } from 'lucide-react';
+import { Copy, ExternalLink, Plus } from 'lucide-react';
 import { useState } from 'react';
 import { api, ApiError } from '@shared/api';
 import { intervalLabels, statusLabels } from '@shared/format';
@@ -80,6 +80,58 @@ export function ProductsPage() {
                   <p className="impay-text-sm impay-text-muted">Sin precios configurados</p>
                 )}
               </div>
+
+              {product.status === 'active' && product.checkout_url && (
+                <div className="impay-mt-4 impay-rounded-control impay-border impay-border-line impay-bg-canvas impay-px-3 impay-py-2">
+                  <p className="impay-mb-1 impay-text-xs impay-font-medium impay-text-muted">Link de venta</p>
+                  <div className="impay-flex impay-items-center impay-gap-2">
+                    <button
+                      className="impay-min-w-0 impay-flex-1 impay-truncate impay-text-left impay-font-mono impay-text-xs impay-text-ink hover:impay-text-accent"
+                      title="Copiar link"
+                      onClick={() => {
+                        void navigator.clipboard.writeText(product.checkout_url ?? '');
+                        toast('Link de venta copiado. Compártelo o úsalo en un botón.');
+                      }}
+                    >
+                      {product.checkout_url}
+                    </button>
+                    <button
+                      className="impay-text-muted hover:impay-text-accent"
+                      title="Copiar link"
+                      onClick={() => {
+                        void navigator.clipboard.writeText(product.checkout_url ?? '');
+                        toast('Link de venta copiado.');
+                      }}
+                    >
+                      <Copy size={14} />
+                    </button>
+                    <a
+                      href={product.checkout_url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="impay-text-muted hover:impay-text-accent"
+                      title="Abrir checkout"
+                    >
+                      <ExternalLink size={14} />
+                    </a>
+                  </div>
+                  <button
+                    className="impay-mt-1.5 impay-font-mono impay-text-[11px] impay-text-muted hover:impay-text-accent"
+                    title="Copiar shortcode para insertar un botón de compra en cualquier página"
+                    onClick={() => {
+                      void navigator.clipboard.writeText(`[impay_boton producto="${product.slug}"]`);
+                      toast('Shortcode copiado. Pégalo en cualquier página o builder.');
+                    }}
+                  >
+                    [impay_boton producto="{product.slug}"]
+                  </button>
+                </div>
+              )}
+              {product.status !== 'active' && (
+                <p className="impay-mt-4 impay-rounded-control impay-bg-amber-50 impay-px-3 impay-py-2 impay-text-xs impay-text-warn">
+                  Actívalo (Editar → Estado: Activo) para obtener su link de venta.
+                </p>
+              )}
 
               <div className="impay-mt-4 impay-flex impay-gap-2 impay-border-t impay-border-line impay-pt-4">
                 <Button variant="secondary" onClick={() => setEditing(product)}>

@@ -63,6 +63,7 @@ final class MetricsService
         ));
 
         return [
+            'products_count' => count($this->products->all()),
             'mrr' => $this->formatByCurrency($this->subscriptions->mrrByCurrency()),
             'active_subscriptions' => $this->subscriptions->countByStatus(SubscriptionStatus::Active),
             'past_due_subscriptions' => $this->subscriptions->countByStatus(SubscriptionStatus::PastDue),

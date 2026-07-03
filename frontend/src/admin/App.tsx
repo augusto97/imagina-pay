@@ -56,8 +56,14 @@ export function App() {
             </button>
           ))}
         </nav>
-        <div className="impay-border-t impay-border-line impay-px-5 impay-py-4 impay-text-xs impay-text-muted">
-          {boot().userName ?? 'Administrador'}
+        <div className="impay-space-y-2 impay-border-t impay-border-line impay-px-5 impay-py-4">
+          <a
+            href={boot().adminUrl ?? '/wp-admin/'}
+            className="impay-flex impay-items-center impay-gap-2 impay-text-xs impay-font-medium impay-text-muted hover:impay-text-accent"
+          >
+            ← Volver a WordPress
+          </a>
+          <p className="impay-text-xs impay-text-muted">{boot().userName ?? 'Administrador'}</p>
         </div>
       </aside>
 
