@@ -13,9 +13,11 @@ use ImaginaPay\Domain\Repositories\PriceRepository;
 use ImaginaPay\Domain\Repositories\ProductRepository;
 use ImaginaPay\Domain\Repositories\SubscriptionRepository;
 use ImaginaPay\Domain\Repositories\WebhookEventRepository;
+use ImaginaPay\Admin\AdminPage;
 use ImaginaPay\Domain\Services\CheckoutService;
 use ImaginaPay\Domain\Services\DunningService;
 use ImaginaPay\Domain\Services\MaintenanceService;
+use ImaginaPay\Domain\Services\MetricsService;
 use ImaginaPay\Domain\Services\PaymentService;
 use ImaginaPay\Domain\Services\ReconciliationService;
 use ImaginaPay\Domain\Services\RenewalService;
@@ -37,6 +39,13 @@ use ImaginaPay\Jobs\Scheduler;
 use ImaginaPay\Mail\EmailNotifications;
 use ImaginaPay\Mail\EmailTemplate;
 use ImaginaPay\Mail\Mailer;
+use ImaginaPay\Rest\Admin\CustomersController as AdminCustomersController;
+use ImaginaPay\Rest\Admin\DashboardController as AdminDashboardController;
+use ImaginaPay\Rest\Admin\PaymentLinksController as AdminPaymentLinksController;
+use ImaginaPay\Rest\Admin\PaymentsController as AdminPaymentsController;
+use ImaginaPay\Rest\Admin\ProductsController as AdminProductsController;
+use ImaginaPay\Rest\Admin\SubscriptionsController as AdminSubscriptionsController;
+use ImaginaPay\Rest\Admin\WebhookEventsController as AdminWebhookEventsController;
 use ImaginaPay\Rest\CheckoutController;
 use ImaginaPay\Rest\HealthController;
 use ImaginaPay\Rest\OrdersController;
@@ -75,6 +84,10 @@ final class Plugin
         $container->get(Router::class)->register();
         $container->get(Scheduler::class)->register();
         $container->get(Hooks::class)->register();
+
+        if (is_admin()) {
+            $container->get(AdminPage::class)->register();
+        }
     }
 
     public static function container(): Container
@@ -373,12 +386,88 @@ final class Plugin
             $c->get(Clock::class),
         ));
 
+        // Servicios y controllers del admin.
+        $c->singleton(MetricsService::class, static fn (Container $c): MetricsService => new MetricsService(
+            $c->get(SubscriptionRepository::class),
+            $c->get(PaymentRepository::class),
+            $c->get(CustomerRepository::class),
+            $c->get(ProductRepository::class),
+            $c->get(WebhookEventRepository::class),
+            $c->get(Clock::class),
+        ));
+
+        $c->singleton(AdminProductsController::class, static fn (Container $c): AdminProductsController => new AdminProductsController(
+            $c->get(Logger::class),
+            $c->get(ProductRepository::class),
+            $c->get(PriceRepository::class),
+            $c->get(Validator::class),
+            $c->get(Clock::class),
+        ));
+
+        $c->singleton(AdminSubscriptionsController::class, static fn (Container $c): AdminSubscriptionsController => new AdminSubscriptionsController(
+            $c->get(Logger::class),
+            $c->get(SubscriptionRepository::class),
+            $c->get(CustomerRepository::class),
+            $c->get(ProductRepository::class),
+            $c->get(PaymentRepository::class),
+            $c->get(SubscriptionService::class),
+            $c->get(SubscriptionStateMachine::class),
+            $c->get(GatewayRegistry::class),
+            $c->get(Clock::class),
+        ));
+
+        $c->singleton(AdminCustomersController::class, static fn (Container $c): AdminCustomersController => new AdminCustomersController(
+            $c->get(Logger::class),
+            $c->get(CustomerRepository::class),
+            $c->get(SubscriptionRepository::class),
+            $c->get(PaymentRepository::class),
+            $c->get(ProductRepository::class),
+        ));
+
+        $c->singleton(AdminPaymentsController::class, static fn (Container $c): AdminPaymentsController => new AdminPaymentsController(
+            $c->get(Logger::class),
+            $c->get(PaymentRepository::class),
+            $c->get(OrderRepository::class),
+            $c->get(CustomerRepository::class),
+            $c->get(ProductRepository::class),
+            $c->get(Clock::class),
+        ));
+
+        $c->singleton(AdminPaymentLinksController::class, static fn (Container $c): AdminPaymentLinksController => new AdminPaymentLinksController(
+            $c->get(Logger::class),
+            $c->get(CustomerRepository::class),
+            $c->get(PriceRepository::class),
+            $c->get(GatewayRegistry::class),
+            $c->get(Validator::class),
+        ));
+
+        $c->singleton(AdminWebhookEventsController::class, static fn (Container $c): AdminWebhookEventsController => new AdminWebhookEventsController(
+            $c->get(Logger::class),
+            $c->get(WebhookEventRepository::class),
+            $c->get(LogRepository::class),
+            $c->get(WebhookProcessor::class),
+        ));
+
+        $c->singleton(AdminDashboardController::class, static fn (Container $c): AdminDashboardController => new AdminDashboardController(
+            $c->get(Logger::class),
+            $c->get(MetricsService::class),
+        ));
+
+        $c->singleton(AdminPage::class, static fn (): AdminPage => new AdminPage());
+
         $c->singleton(Router::class, static fn (Container $c): Router => new Router([
             $c->get(HealthController::class),
             $c->get(SettingsController::class),
             $c->get(CheckoutController::class),
             $c->get(OrdersController::class),
             $c->get(WebhookController::class),
+            $c->get(AdminProductsController::class),
+            $c->get(AdminSubscriptionsController::class),
+            $c->get(AdminCustomersController::class),
+            $c->get(AdminPaymentsController::class),
+            $c->get(AdminPaymentLinksController::class),
+            $c->get(AdminWebhookEventsController::class),
+            $c->get(AdminDashboardController::class),
         ]));
     }
 }

@@ -69,6 +69,16 @@
         </properties>
     </rule>
 
+    <!-- Capability propia registrada en Activator::registerRolesAndCaps(). -->
+    <rule ref="WordPress.WP.Capabilities">
+        <properties>
+            <property name="custom_capabilities" type="array">
+                <element value="manage_impay"/>
+                <element value="impay_customer"/>
+            </property>
+        </properties>
+    </rule>
+
     <!-- Prefijos propios para el espacio global de WP. -->
     <rule ref="WordPress.NamingConventions.PrefixAllGlobals">
         <properties>
