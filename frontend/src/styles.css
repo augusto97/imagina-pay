@@ -1,0 +1,13 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+#impay-root {
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, sans-serif;
+  color: #18181b;
+  -webkit-font-smoothing: antialiased;
+}
+
+#impay-root .impay-tabular {
+  font-variant-numeric: tabular-nums;
+}
