@@ -25,6 +25,7 @@ export function Button({
       className={cx(
         'impay-inline-flex impay-items-center impay-gap-2 impay-rounded-control impay-px-4 impay-py-2',
         'impay-text-sm impay-font-medium impay-transition-colors disabled:impay-opacity-50 disabled:impay-pointer-events-none',
+        'focus-visible:impay-outline-none focus-visible:impay-ring-2 focus-visible:impay-ring-accent/40 focus-visible:impay-ring-offset-1',
         variants[variant],
         className,
       )}
