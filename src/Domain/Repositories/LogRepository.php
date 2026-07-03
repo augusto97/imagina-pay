@@ -33,6 +33,38 @@ class LogRepository extends AbstractRepository
     }
 
     /**
+     * Listado admin (tab de logs).
+     *
+     * @return array{items: list<array<string, mixed>>, total: int}
+     */
+    public function list(int $page = 1, int $perPage = 50, ?string $level = null, ?string $channel = null): array
+    {
+        $args = [$this->table('logs')];
+        $conditions = '';
+
+        if ($level !== null && $level !== '') {
+            $conditions .= ' AND level = %s';
+            $args[] = $level;
+        }
+
+        if ($channel !== null && $channel !== '') {
+            $conditions .= ' AND channel = %s';
+            $args[] = $channel;
+        }
+
+        $total = (int) $this->selectScalar('SELECT COUNT(*) FROM %i WHERE 1=1' . $conditions, $args);
+
+        array_push($args, max(1, $perPage), max(0, ($page - 1) * $perPage));
+
+        $rows = $this->selectRows(
+            'SELECT * FROM %i WHERE 1=1' . $conditions . ' ORDER BY id DESC LIMIT %d OFFSET %d',
+            $args,
+        );
+
+        return ['items' => $rows, 'total' => $total];
+    }
+
+    /**
      * Retención: borra logs con más de N días (job impay_cleanup).
      */
     public function deleteOlderThan(\DateTimeImmutable $threshold): int

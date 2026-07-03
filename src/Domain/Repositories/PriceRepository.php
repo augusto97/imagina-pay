@@ -58,6 +58,33 @@ class PriceRepository extends AbstractRepository
     }
 
     /**
+     * @param array<string, mixed> $data
+     */
+    public function update(int $id, array $data): void
+    {
+        $this->updateRow($this->table('prices'), $id, $data);
+    }
+
+    /**
+     * @param list<int> $ids
+     * @return array<int, Price> Indexado por id.
+     */
+    public function findByIds(array $ids): array
+    {
+        $result = [];
+
+        foreach (array_unique($ids) as $id) {
+            $price = $this->find($id);
+
+            if ($price !== null) {
+                $result[$id] = $price;
+            }
+        }
+
+        return $result;
+    }
+
+    /**
      * Guarda referencias de planes creados perezosamente en las pasarelas
      * (p. ej. paypal_plan_id).
      *

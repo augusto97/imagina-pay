@@ -53,6 +53,125 @@ class PaymentRepository extends AbstractRepository
     }
 
     /**
+     * Listado admin con filtros; incluye el total del rango por moneda.
+     *
+     * @return array{items: list<Payment>, total: int, sums: array<string, int>}
+     */
+    public function list(
+        int $page = 1,
+        int $perPage = 20,
+        ?PaymentStatus $status = null,
+        ?string $gateway = null,
+        ?\DateTimeImmutable $from = null,
+        ?\DateTimeImmutable $to = null,
+        ?int $customerId = null,
+    ): array {
+        $args = [$this->table('payments')];
+        $conditions = '';
+
+        if ($status !== null) {
+            $conditions .= ' AND status = %s';
+            $args[] = $status->value;
+        }
+
+        if ($gateway !== null && $gateway !== '') {
+            $conditions .= ' AND gateway = %s';
+            $args[] = $gateway;
+        }
+
+        if ($from !== null) {
+            $conditions .= ' AND created_at >= %s';
+            $args[] = $this->formatDate($from);
+        }
+
+        if ($to !== null) {
+            $conditions .= ' AND created_at <= %s';
+            $args[] = $this->formatDate($to);
+        }
+
+        if ($customerId !== null && $customerId > 0) {
+            $conditions .= ' AND customer_id = %d';
+            $args[] = $customerId;
+        }
+
+        $total = (int) $this->selectScalar('SELECT COUNT(*) FROM %i WHERE 1=1' . $conditions, $args);
+
+        $sumRows = $this->selectRows(
+            'SELECT currency, SUM(amount) AS total FROM %i WHERE 1=1' . $conditions . ' GROUP BY currency',
+            $args,
+        );
+        $sums = [];
+
+        foreach ($sumRows as $row) {
+            $sums[(string) $row['currency']] = (int) $row['total'];
+        }
+
+        $listArgs = $args;
+        array_push($listArgs, max(1, $perPage), max(0, ($page - 1) * $perPage));
+
+        $rows = $this->selectRows(
+            'SELECT * FROM %i WHERE 1=1' . $conditions . ' ORDER BY id DESC LIMIT %d OFFSET %d',
+            $listArgs,
+        );
+
+        return [
+            'items' => array_values(array_map(fn (array $row): Payment => $this->mapRow($row), $rows)),
+            'total' => $total,
+            'sums' => $sums,
+        ];
+    }
+
+    /**
+     * Ingresos aprobados agrupados por mes y moneda (gráfico 12 meses).
+     *
+     * @return list<array{month: string, currency: string, amount: int}>
+     */
+    public function monthlyRevenue(\DateTimeImmutable $since): array
+    {
+        $rows = $this->selectRows(
+            "SELECT DATE_FORMAT(paid_at, '%%Y-%%m') AS month, currency, SUM(amount) AS amount"
+            . ' FROM %i WHERE status = %s AND paid_at IS NOT NULL AND paid_at >= %s'
+            . ' GROUP BY month, currency ORDER BY month ASC',
+            [$this->table('payments'), PaymentStatus::Approved->value, $this->formatDate($since)],
+        );
+
+        return array_values(array_map(static fn (array $row): array => [
+            'month' => (string) $row['month'],
+            'currency' => (string) $row['currency'],
+            'amount' => (int) $row['amount'],
+        ], $rows));
+    }
+
+    /**
+     * Filas planas para el export contable CSV.
+     *
+     * @return list<array<string, mixed>>
+     */
+    public function rowsForExport(\DateTimeImmutable $from, \DateTimeImmutable $to): array
+    {
+        return $this->selectRows(
+            'SELECT p.uuid, p.gateway, p.gateway_payment_id, p.status, p.currency, p.amount, p.method,'
+            . ' p.paid_at, p.created_at, c.email, c.full_name, c.tax_id_type, c.tax_id'
+            . ' FROM %i p LEFT JOIN %i c ON c.id = p.customer_id'
+            . ' WHERE p.created_at BETWEEN %s AND %s ORDER BY p.id ASC',
+            [$this->table('payments'), $this->table('customers'), $this->formatDate($from), $this->formatDate($to)],
+        );
+    }
+
+    /**
+     * @return list<Payment>
+     */
+    public function findBySubscription(int $subscriptionId, int $limit = 50): array
+    {
+        $rows = $this->selectRows(
+            'SELECT * FROM %i WHERE subscription_id = %d ORDER BY id DESC LIMIT %d',
+            [$this->table('payments'), $subscriptionId, $limit],
+        );
+
+        return array_values(array_map(fn (array $row): Payment => $this->mapRow($row), $rows));
+    }
+
+    /**
      * @param array<string, mixed> $data
      */
     public function insert(array $data): int

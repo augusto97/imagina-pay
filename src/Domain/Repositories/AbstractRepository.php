@@ -70,6 +70,65 @@ abstract class AbstractRepository
     }
 
     /**
+     * Actualiza una fila por id derivando los formatos del tipo de cada valor.
+     *
+     * @param array<string, mixed> $data
+     */
+    protected function updateRow(string $table, int $id, array $data): void
+    {
+        $formats = array_map(
+            static fn (mixed $value): string => match (true) {
+                is_int($value), is_bool($value) => '%d',
+                is_float($value) => '%f',
+                default => '%s',
+            },
+            array_values($data),
+        );
+
+        $this->db->update($table, $data, ['id' => $id], $formats, ['%d']);
+    }
+
+    /**
+     * Ejecuta un SELECT preparado y devuelve las filas asociativas.
+     *
+     * @param literal-string $sql
+     * @param array<int, string|int|float> $args
+     * @return list<array<string, mixed>>
+     */
+    protected function selectRows(string $sql, array $args): array
+    {
+        $prepared = $this->db->prepare($sql, ...$args);
+
+        if (!is_string($prepared)) {
+            return [];
+        }
+
+        /** @var array<int, array<string, mixed>>|null $rows */
+        $rows = $this->db->get_results($prepared, ARRAY_A);
+
+        return is_array($rows) ? array_values($rows) : [];
+    }
+
+    /**
+     * Valor escalar de un SELECT preparado (COUNT, SUM...).
+     *
+     * @param literal-string $sql
+     * @param array<int, string|int|float> $args
+     */
+    protected function selectScalar(string $sql, array $args): string
+    {
+        $prepared = $this->db->prepare($sql, ...$args);
+
+        if (!is_string($prepared)) {
+            return '0';
+        }
+
+        $value = $this->db->get_var($prepared);
+
+        return is_scalar($value) ? (string) $value : '0';
+    }
+
+    /**
      * @return array<string, mixed>|null
      */
     protected function decodeJson(mixed $value): ?array

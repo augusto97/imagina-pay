@@ -48,6 +48,49 @@ class OrderRepository extends AbstractRepository
     }
 
     /**
+     * @return array{items: list<Order>, total: int}
+     */
+    public function list(
+        int $page = 1,
+        int $perPage = 20,
+        ?OrderStatus $status = null,
+        ?string $gateway = null,
+        ?int $customerId = null,
+    ): array {
+        $sql = 'SELECT * FROM %i WHERE 1=1';
+        $countSql = 'SELECT COUNT(*) FROM %i WHERE 1=1';
+        $args = [$this->table('orders')];
+        $conditions = '';
+
+        if ($status !== null) {
+            $conditions .= ' AND status = %s';
+            $args[] = $status->value;
+        }
+
+        if ($gateway !== null && $gateway !== '') {
+            $conditions .= ' AND gateway = %s';
+            $args[] = $gateway;
+        }
+
+        if ($customerId !== null && $customerId > 0) {
+            $conditions .= ' AND customer_id = %d';
+            $args[] = $customerId;
+        }
+
+        $total = (int) $this->selectScalar($countSql . $conditions, $args);
+
+        $sql .= $conditions . ' ORDER BY id DESC LIMIT %d OFFSET %d';
+        array_push($args, max(1, $perPage), max(0, ($page - 1) * $perPage));
+
+        $rows = $this->selectRows($sql, $args);
+
+        return [
+            'items' => array_values(array_map(fn (array $row): Order => $this->mapRow($row), $rows)),
+            'total' => $total,
+        ];
+    }
+
+    /**
      * @param array<string, mixed> $data
      */
     public function insert(array $data): int

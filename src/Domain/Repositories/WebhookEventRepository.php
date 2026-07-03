@@ -94,6 +94,59 @@ class WebhookEventRepository extends AbstractRepository
     }
 
     /**
+     * Listado admin (payload colapsable en la UI).
+     *
+     * @return array{items: list<array<string, mixed>>, total: int}
+     */
+    public function list(int $page = 1, int $perPage = 20, ?string $status = null, ?string $gateway = null): array
+    {
+        $args = [$this->table('webhook_events')];
+        $conditions = '';
+
+        if ($status !== null && $status !== '') {
+            $conditions .= ' AND status = %s';
+            $args[] = $status;
+        }
+
+        if ($gateway !== null && $gateway !== '') {
+            $conditions .= ' AND gateway = %s';
+            $args[] = $gateway;
+        }
+
+        $total = (int) $this->selectScalar('SELECT COUNT(*) FROM %i WHERE 1=1' . $conditions, $args);
+
+        array_push($args, max(1, $perPage), max(0, ($page - 1) * $perPage));
+
+        $rows = $this->selectRows(
+            'SELECT * FROM %i WHERE 1=1' . $conditions . ' ORDER BY id DESC LIMIT %d OFFSET %d',
+            $args,
+        );
+
+        return ['items' => $rows, 'total' => $total];
+    }
+
+    /**
+     * Último evento recibido por pasarela (indicador de salud).
+     *
+     * @return array<string, string> gateway => datetime.
+     */
+    public function lastReceivedByGateway(): array
+    {
+        $rows = $this->selectRows(
+            'SELECT gateway, MAX(received_at) AS last_received FROM %i GROUP BY gateway',
+            [$this->table('webhook_events')],
+        );
+
+        $result = [];
+
+        foreach ($rows as $row) {
+            $result[(string) $row['gateway']] = (string) $row['last_received'];
+        }
+
+        return $result;
+    }
+
+    /**
      * Retención: borra eventos con más de N días (job impay_cleanup).
      */
     public function deleteOlderThan(\DateTimeImmutable $threshold): int

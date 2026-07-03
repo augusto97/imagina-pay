@@ -32,11 +32,48 @@ class ProductRepository extends AbstractRepository
     }
 
     /**
+     * @return list<Product>
+     */
+    public function all(): array
+    {
+        $rows = $this->selectRows('SELECT * FROM %i ORDER BY id DESC', [$this->table('products')]);
+
+        return array_values(array_map(fn (array $row): Product => $this->mapRow($row), $rows));
+    }
+
+    /**
+     * @param list<int> $ids
+     * @return array<int, Product> Indexado por id.
+     */
+    public function findByIds(array $ids): array
+    {
+        $result = [];
+
+        foreach (array_unique($ids) as $id) {
+            $product = $this->find($id);
+
+            if ($product !== null) {
+                $result[$id] = $product;
+            }
+        }
+
+        return $result;
+    }
+
+    /**
      * @param array<string, mixed> $data Columnas de impay_products.
      */
     public function insert(array $data): int
     {
         return $this->insertRow($this->table('products'), $data);
+    }
+
+    /**
+     * @param array<string, mixed> $data
+     */
+    public function update(int $id, array $data): void
+    {
+        $this->updateRow($this->table('products'), $id, $data);
     }
 
     /**

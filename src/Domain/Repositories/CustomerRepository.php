@@ -38,6 +38,57 @@ class CustomerRepository extends AbstractRepository
     }
 
     /**
+     * Listado paginado con búsqueda por email/nombre/empresa.
+     *
+     * @return array{items: list<Customer>, total: int}
+     */
+    public function list(int $page = 1, int $perPage = 20, string $search = ''): array
+    {
+        $sql = 'SELECT * FROM %i WHERE 1=1';
+        $countSql = 'SELECT COUNT(*) FROM %i WHERE 1=1';
+        $args = [$this->table('customers')];
+
+        if ($search !== '') {
+            $like = '%' . $this->db->esc_like($search) . '%';
+            $condition = ' AND (email LIKE %s OR full_name LIKE %s OR company LIKE %s)';
+            $sql .= $condition;
+            $countSql .= $condition;
+            array_push($args, $like, $like, $like);
+        }
+
+        $total = (int) $this->selectScalar($countSql, $args);
+
+        $sql .= ' ORDER BY id DESC LIMIT %d OFFSET %d';
+        array_push($args, max(1, $perPage), max(0, ($page - 1) * $perPage));
+
+        $rows = $this->selectRows($sql, $args);
+
+        return [
+            'items' => array_values(array_map(fn (array $row): Customer => $this->mapRow($row), $rows)),
+            'total' => $total,
+        ];
+    }
+
+    /**
+     * @param list<int> $ids
+     * @return array<int, Customer> Indexado por id.
+     */
+    public function findByIds(array $ids): array
+    {
+        $result = [];
+
+        foreach (array_unique($ids) as $id) {
+            $customer = $this->find($id);
+
+            if ($customer !== null) {
+                $result[$id] = $customer;
+            }
+        }
+
+        return $result;
+    }
+
+    /**
      * @param array<string, mixed> $data
      */
     public function insert(array $data): int

@@ -59,6 +59,128 @@ class SubscriptionRepository extends AbstractRepository
     }
 
     /**
+     * Listado admin con filtros y búsqueda por cliente (email/nombre).
+     *
+     * @return array{items: list<Subscription>, total: int}
+     */
+    public function list(
+        int $page = 1,
+        int $perPage = 20,
+        ?SubscriptionStatus $status = null,
+        ?string $gateway = null,
+        ?int $productId = null,
+        string $search = '',
+    ): array {
+        $sql = 'SELECT s.* FROM %i s INNER JOIN %i c ON c.id = s.customer_id WHERE 1=1';
+        $countSql = 'SELECT COUNT(*) FROM %i s INNER JOIN %i c ON c.id = s.customer_id WHERE 1=1';
+        $args = [$this->table('subscriptions'), $this->table('customers')];
+
+        $conditions = '';
+
+        if ($status !== null) {
+            $conditions .= ' AND s.status = %s';
+            $args[] = $status->value;
+        }
+
+        if ($gateway !== null && $gateway !== '') {
+            $conditions .= ' AND s.gateway = %s';
+            $args[] = $gateway;
+        }
+
+        if ($productId !== null && $productId > 0) {
+            $conditions .= ' AND s.product_id = %d';
+            $args[] = $productId;
+        }
+
+        if ($search !== '') {
+            $like = '%' . $this->db->esc_like($search) . '%';
+            $conditions .= ' AND (c.email LIKE %s OR c.full_name LIKE %s OR s.uuid LIKE %s)';
+            array_push($args, $like, $like, $like);
+        }
+
+        $total = (int) $this->selectScalar($countSql . $conditions, $args);
+
+        $sql .= $conditions . ' ORDER BY s.id DESC LIMIT %d OFFSET %d';
+        array_push($args, max(1, $perPage), max(0, ($page - 1) * $perPage));
+
+        $rows = $this->selectRows($sql, $args);
+
+        return [
+            'items' => array_values(array_map(fn (array $row): Subscription => $this->mapRow($row), $rows)),
+            'total' => $total,
+        ];
+    }
+
+    public function countByStatus(SubscriptionStatus $status): int
+    {
+        return (int) $this->selectScalar(
+            'SELECT COUNT(*) FROM %i WHERE status = %s',
+            [$this->table('subscriptions'), $status->value],
+        );
+    }
+
+    /**
+     * MRR estimado por moneda: precio mensual completo, anuales prorrateados /12.
+     *
+     * @return array<string, int> currency => monto mensual en unidad mínima.
+     */
+    public function mrrByCurrency(): array
+    {
+        $rows = $this->selectRows(
+            'SELECT p.currency, SUM(CASE WHEN p.`interval` = %s THEN p.amount ELSE ROUND(p.amount / 12) END) AS mrr'
+            . ' FROM %i s INNER JOIN %i p ON p.id = s.price_id'
+            . ' WHERE s.status = %s AND p.`interval` != %s GROUP BY p.currency',
+            ['month', $this->table('subscriptions'), $this->table('prices'), 'active', 'one_time'],
+        );
+
+        $result = [];
+
+        foreach ($rows as $row) {
+            $result[(string) $row['currency']] = (int) $row['mrr'];
+        }
+
+        return $result;
+    }
+
+    /**
+     * Renovaciones/vencimientos en los próximos N días (suscripciones activas).
+     *
+     * @return list<Subscription>
+     */
+    public function upcomingRenewals(\DateTimeImmutable $now, int $days = 30, int $limit = 50): array
+    {
+        $prepared = $this->db->prepare(
+            'SELECT * FROM %i WHERE status = %s AND current_period_end IS NOT NULL'
+            . ' AND current_period_end BETWEEN %s AND %s ORDER BY current_period_end ASC LIMIT %d',
+            $this->table('subscriptions'),
+            SubscriptionStatus::Active->value,
+            $this->formatDate($now),
+            $this->formatDate($now->add(new \DateInterval('P' . $days . 'D'))),
+            $limit,
+        );
+
+        return $this->mapRows($prepared);
+    }
+
+    /**
+     * Suscripciones con tarea de provisión manual pendiente (meta.manual_task).
+     *
+     * @return list<Subscription>
+     */
+    public function withPendingManualTasks(int $limit = 50): array
+    {
+        $prepared = $this->db->prepare(
+            'SELECT * FROM %i WHERE meta LIKE %s AND meta LIKE %s ORDER BY id DESC LIMIT %d',
+            $this->table('subscriptions'),
+            '%"manual_task"%',
+            '%"pending"%',
+            $limit,
+        );
+
+        return $this->mapRows($prepared);
+    }
+
+    /**
      * @return list<Subscription>
      */
     public function findByStatus(SubscriptionStatus $status, int $limit = 500): array
