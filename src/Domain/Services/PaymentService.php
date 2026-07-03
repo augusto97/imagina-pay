@@ -149,39 +149,57 @@ class PaymentService
             ));
         }
 
+        // Un cobro exitoso cierra cualquier episodio de dunning abierto.
+        if (isset($subscription->meta['dunning'])) {
+            $meta = $subscription->meta;
+            unset($meta['dunning']);
+            $this->subscriptions->updateMeta($subscription->id, $meta, $now);
+        }
+
         $this->markInitialOrderPaid($subscription, $payment, $now);
     }
 
     private function onSubscriptionPaymentRejected(Subscription $subscription, GatewayPayment $payment): void
     {
+        $this->applyChargeFailure($subscription, ['gateway_payment_id' => $payment->gatewayPaymentId]);
+    }
+
+    /**
+     * Fallo de cobro sin pago concreto asociado (p. ej. el evento
+     * BILLING.SUBSCRIPTION.PAYMENT.FAILED de PayPal): incrementa el
+     * contador, degrada a past_due y cancela al tercer fallo.
+     *
+     * @param array<string, mixed> $context
+     */
+    public function applyChargeFailure(Subscription $subscription, array $context = []): void
+    {
         $now = $this->clock->now();
         $failed = $this->subscriptions->incrementFailedPayments($subscription->id, $now);
 
         $this->logger->warning('payments', sprintf(
-            'Pago rechazado en suscripción %s (fallo #%d, pago %s).',
+            'Pago rechazado en suscripción %s (fallo #%d).',
             $subscription->uuid,
             $failed,
-            $payment->gatewayPaymentId,
-        ));
+        ), $context);
 
         try {
             if ($failed >= self::MAX_FAILED_PAYMENTS && $subscription->status === SubscriptionStatus::PastDue) {
-                $this->stateMachine->transition($subscription, SubscriptionStatus::Cancelled, [
+                $this->stateMachine->transition($subscription, SubscriptionStatus::Cancelled, array_merge($context, [
                     'source' => 'dunning',
                     'failed_payments' => $failed,
-                ]);
+                ]));
 
                 return;
             }
 
             if ($subscription->status === SubscriptionStatus::Active) {
-                $this->stateMachine->transition($subscription, SubscriptionStatus::PastDue, [
+                $this->stateMachine->transition($subscription, SubscriptionStatus::PastDue, array_merge($context, [
                     'source' => 'payment',
-                    'gateway_payment_id' => $payment->gatewayPaymentId,
-                ]);
+                ]));
             }
-        } catch (InvalidTransitionException) {
-            // Estado ya terminal o incompatible: queda registrado en logs por la state machine.
+        } catch (InvalidTransitionException $exception) {
+            // Estado ya terminal o incompatible: la state machine ya lo registró.
+            $this->logger->debug('payments', $exception->getMessage(), ['subscription' => $subscription->uuid]);
         }
     }
 
