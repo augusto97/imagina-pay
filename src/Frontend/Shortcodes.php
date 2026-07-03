@@ -84,7 +84,7 @@ final class Shortcodes
             'product' => Presenter::product($product, $activePrices),
         ];
 
-        $this->enqueue('checkout', 'src/checkout/main.tsx');
+        ViteAssets::enqueue('checkout', 'src/checkout/main.tsx');
 
         return '<script type="application/json" id="impay-boot">' . (string) wp_json_encode($boot) . '</script>'
             . '<div id="impay-root"><div id="impay-checkout-root"></div></div>';
@@ -104,7 +104,7 @@ final class Shortcodes
             'portalUrl' => $this->pageUrl('impay_page_portal', '/mi-cuenta/'),
         ];
 
-        $this->enqueue('checkout', 'src/checkout/main.tsx');
+        ViteAssets::enqueue('checkout', 'src/checkout/main.tsx');
 
         return '<script type="application/json" id="impay-boot">' . (string) wp_json_encode($boot) . '</script>'
             . '<div id="impay-root"><div id="impay-gracias-root"></div></div>';
@@ -121,7 +121,7 @@ final class Shortcodes
             'supportEmail' => (string) get_option('admin_email', ''),
         ];
 
-        $this->enqueue('portal', 'src/portal/main.tsx');
+        ViteAssets::enqueue('portal', 'src/portal/main.tsx');
 
         return '<script type="application/json" id="impay-boot">' . (string) wp_json_encode($boot) . '</script>'
             . '<div id="impay-root"><div id="impay-portal-root"></div></div>';
@@ -133,58 +133,5 @@ final class Shortcodes
         $url = $pageId > 0 ? get_permalink($pageId) : false;
 
         return is_string($url) ? $url : home_url($fallback);
-    }
-
-    /**
-     * Encola una entry del manifest de Vite (módulo ES + CSS).
-     */
-    private function enqueue(string $handle, string $entryKey): void
-    {
-        if (!defined('IMPAY_PLUGIN_DIR')) {
-            return;
-        }
-
-        $manifestPath = constant('IMPAY_PLUGIN_DIR') . 'frontend/dist/.vite/manifest.json';
-
-        if (!is_string($manifestPath) || !is_readable($manifestPath)) {
-            return;
-        }
-
-        // Archivo local del plugin, no una URL remota.
-        // phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents
-        $manifestJson = file_get_contents($manifestPath);
-        $manifest = is_string($manifestJson) ? json_decode($manifestJson, true) : null;
-
-        if (!is_array($manifest) || !is_array($manifest[$entryKey] ?? null)) {
-            return;
-        }
-
-        $entry = $manifest[$entryKey];
-
-        if (!is_string($entry['file'] ?? null)) {
-            return;
-        }
-
-        $baseUrl = plugins_url('frontend/dist/', constant('IMPAY_PLUGIN_FILE'));
-        $version = defined('IMPAY_VERSION') ? (string) constant('IMPAY_VERSION') : '1.0';
-        $scriptHandle = 'impay-' . $handle;
-
-        wp_enqueue_script($scriptHandle, $baseUrl . $entry['file'], [], $version, true);
-
-        add_filter('script_loader_tag', static function (string $tag, string $currentHandle) use ($scriptHandle): string {
-            if ($currentHandle === $scriptHandle) {
-                return str_replace('<script ', '<script type="module" ', $tag);
-            }
-
-            return $tag;
-        }, 10, 2);
-
-        $styles = is_array($entry['css'] ?? null) ? $entry['css'] : [];
-
-        foreach ($styles as $index => $cssFile) {
-            if (is_string($cssFile)) {
-                wp_enqueue_style($scriptHandle . '-' . $index, $baseUrl . $cssFile, [], $version);
-            }
-        }
     }
 }

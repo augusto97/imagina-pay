@@ -4,10 +4,12 @@ declare(strict_types=1);
 
 namespace ImaginaPay\Admin;
 
+use ImaginaPay\Frontend\ViteAssets;
+
 /**
- * Página "Imagina Pay" en wp-admin: monta el SPA React full-screen en
- * #impay-root (oculta la UI de WP dentro de la vista, estilo Imagina
- * Reports). Los assets salen del manifest de Vite.
+ * Página "Imagina Pay" en wp-admin: monta el SPA React full-screen.
+ * #impay-root es un overlay fijo que cubre el contenido y el menú de WP
+ * (queda visible solo la admin bar), estilo Imagina Reports.
  */
 final class AdminPage
 {
@@ -29,9 +31,9 @@ final class AdminPage
             );
         });
 
-        add_action('admin_enqueue_scripts', function (string $hookSuffix): void {
+        add_action('admin_enqueue_scripts', static function (string $hookSuffix): void {
             if (str_contains($hookSuffix, self::MENU_SLUG)) {
-                $this->enqueueAssets();
+                ViteAssets::enqueue('admin', 'src/admin/main.tsx');
             }
         });
     }
@@ -46,76 +48,33 @@ final class AdminPage
             'gateways' => ['mercadopago', 'paypal'],
         ];
 
+        // Overlay full-screen: cubre el menú y el contenido de WP; la admin
+        // bar (z-index 99999) queda accesible por encima.
         echo '<style>
-            #wpcontent { padding-left: 0 !important; }
-            #wpbody-content { padding-bottom: 0 !important; }
-            #wpfooter, .update-nag, .notice { display: none !important; }
-            #impay-root { min-height: calc(100vh - 32px); background: #FAFAFA; }
+            #impay-root {
+                position: fixed;
+                top: 32px;
+                left: 0;
+                right: 0;
+                bottom: 0;
+                z-index: 99990;
+                background: #FAFAFA;
+                overflow: hidden;
+            }
+            @media screen and (max-width: 782px) {
+                #impay-root { top: 46px; }
+            }
+            #wpfooter, .update-nag, .notice, #wpbody-content > .error { display: none !important; }
         </style>';
         echo '<script type="application/json" id="impay-boot">' . wp_json_encode($bootData) . '</script>';
-        echo '<div id="impay-root"></div>';
+        echo '<div id="impay-root">';
 
-        if (!$this->manifestPath()) {
+        if (!ViteAssets::isBuilt()) {
             echo '<div style="padding:48px;font-family:sans-serif;color:#71717A;">';
             echo esc_html('El frontend de Imagina Pay no está compilado. Ejecuta "npm install && npm run build" en el directorio frontend/ del plugin.');
             echo '</div>';
         }
-    }
 
-    private function enqueueAssets(): void
-    {
-        $manifestPath = $this->manifestPath();
-
-        if ($manifestPath === null) {
-            return;
-        }
-
-        // Archivo local del plugin, no una URL remota.
-        // phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents
-        $manifestJson = file_get_contents($manifestPath);
-        $manifest = is_string($manifestJson) ? json_decode($manifestJson, true) : null;
-
-        if (!is_array($manifest)) {
-            return;
-        }
-
-        $entry = $manifest['src/admin/main.tsx'] ?? null;
-
-        if (!is_array($entry) || !is_string($entry['file'] ?? null)) {
-            return;
-        }
-
-        $baseUrl = plugins_url('frontend/dist/', constant('IMPAY_PLUGIN_FILE'));
-        $version = defined('IMPAY_VERSION') ? (string) constant('IMPAY_VERSION') : '1.0';
-
-        wp_enqueue_script('impay-admin', $baseUrl . $entry['file'], [], $version, true);
-
-        // Vite genera módulos ES.
-        add_filter('script_loader_tag', static function (string $tag, string $handle): string {
-            if ($handle === 'impay-admin') {
-                return str_replace('<script ', '<script type="module" ', $tag);
-            }
-
-            return $tag;
-        }, 10, 2);
-
-        $styles = is_array($entry['css'] ?? null) ? $entry['css'] : [];
-
-        foreach ($styles as $index => $cssFile) {
-            if (is_string($cssFile)) {
-                wp_enqueue_style('impay-admin-' . $index, $baseUrl . $cssFile, [], $version);
-            }
-        }
-    }
-
-    private function manifestPath(): ?string
-    {
-        if (!defined('IMPAY_PLUGIN_DIR')) {
-            return null;
-        }
-
-        $path = constant('IMPAY_PLUGIN_DIR') . 'frontend/dist/.vite/manifest.json';
-
-        return is_string($path) && is_readable($path) ? $path : null;
+        echo '</div>';
     }
 }

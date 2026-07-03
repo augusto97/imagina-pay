@@ -33,8 +33,8 @@ export function App() {
   const baseRoute = route.split('/')[0];
 
   return (
-    <div className="impay-flex impay-min-h-screen impay-bg-canvas">
-      <aside className="impay-fixed impay-flex impay-h-screen impay-w-60 impay-flex-col impay-border-r impay-border-line impay-bg-white">
+    <div className="impay-flex impay-h-full impay-min-h-0 impay-w-full impay-bg-canvas">
+      <aside className="impay-flex impay-h-full impay-w-60 impay-shrink-0 impay-flex-col impay-overflow-y-auto impay-border-r impay-border-line impay-bg-white">
         <div className="impay-px-5 impay-py-5">
           <span className="impay-text-lg impay-font-semibold impay-tracking-tight">
             Imagina <span className="impay-text-accent">Pay</span>
@@ -61,7 +61,7 @@ export function App() {
         </div>
       </aside>
 
-      <main className="impay-ml-60 impay-flex-1 impay-p-8">
+      <main className="impay-h-full impay-min-w-0 impay-flex-1 impay-overflow-y-auto impay-p-8">
         {baseRoute === 'dashboard' && <DashboardPage />}
         {baseRoute === 'productos' && <ProductsPage />}
         {baseRoute === 'suscripciones' && <SubscriptionsPage />}
