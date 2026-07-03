@@ -7,8 +7,10 @@ namespace ImaginaPay\Gateways\MercadoPago;
 use ImaginaPay\Domain\Enums\PaymentStatus;
 use ImaginaPay\Domain\Enums\SubscriptionStatus;
 use ImaginaPay\Domain\Repositories\OrderRepository;
+use ImaginaPay\Domain\Repositories\PaymentLinkRepository;
 use ImaginaPay\Domain\Repositories\SubscriptionRepository;
 use ImaginaPay\Domain\Services\PaymentService;
+use ImaginaPay\Domain\Services\RenewalService;
 use ImaginaPay\Domain\StateMachine\SubscriptionStateMachine;
 use ImaginaPay\Exceptions\InvalidTransitionException;
 use ImaginaPay\Gateways\GatewayPayment;
@@ -26,7 +28,9 @@ class MercadoPagoWebhookHandler
         private readonly MercadoPagoClient $client,
         private readonly OrderRepository $orders,
         private readonly SubscriptionRepository $subscriptions,
+        private readonly PaymentLinkRepository $paymentLinks,
         private readonly PaymentService $payments,
+        private readonly RenewalService $renewals,
         private readonly SubscriptionStateMachine $stateMachine,
         private readonly Logger $logger,
     ) {
@@ -82,8 +86,18 @@ class MercadoPagoWebhookHandler
             return;
         }
 
+        // Links de pago (renovaciones anuales / cobros manuales) llevan el
+        // uuid del link como external_reference.
+        $link = $externalReference !== '' ? $this->paymentLinks->findByUuid($externalReference) : null;
+
+        if ($link !== null) {
+            $this->renewals->applyPaidLink($link, $payment);
+
+            return;
+        }
+
         $this->logger->warning('webhooks', sprintf(
-            'Pago %s de Mercado Pago sin order ni suscripción local (external_reference: "%s").',
+            'Pago %s de Mercado Pago sin order, suscripción ni link local (external_reference: "%s").',
             $paymentId,
             $externalReference,
         ));
