@@ -1,0 +1,49 @@
+{
+    "name": "imagina/imagina-pay",
+    "description": "Plugin de venta de productos digitales y suscripciones para LATAM (Mercado Pago + PayPal), sin WooCommerce.",
+    "type": "wordpress-plugin",
+    "license": "proprietary",
+    "require": {
+        "php": ">=8.1",
+        "woocommerce/action-scheduler": "^3.7"
+    },
+    "repositories": [
+        {
+            "type": "artifact",
+            "url": "tools/phars"
+        }
+    ],
+    "require-dev": {
+        "phpunit/phpunit": "^10.5",
+        "brain/monkey": "^2.6",
+        "mockery/mockery": "^1.6",
+        "phpstan/phpstan": "^1.11",
+        "szepeviktor/phpstan-wordpress": "^1.3",
+        "php-stubs/wordpress-stubs": "^6.5",
+        "wp-coding-standards/wpcs": "^3.1",
+        "dealerdirect/phpcodesniffer-composer-installer": "^1.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "ImaginaPay\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "ImaginaPay\\Tests\\": "tests/"
+        }
+    },
+    "config": {
+        "optimize-autoloader": true,
+        "sort-packages": true,
+        "allow-plugins": {
+            "dealerdirect/phpcodesniffer-composer-installer": true
+        }
+    },
+    "scripts": {
+        "test": "phpunit",
+        "phpstan": "phpstan analyse --memory-limit=1G",
+        "phpcs": "phpcs",
+        "phpcbf": "phpcbf"
+    }
+}
