@@ -6,9 +6,55 @@
 
 ## Estado actual
 
-- **Fase actual:** Fase 3 — PayPal + suscripciones lógicas → **COMPLETADA (código + tests) ✅** · Pendiente: sandbox de MP y PayPal con credenciales reales
-- **Siguiente paso:** Fase 4 — Emails + provisión (Mailer, 10 plantillas, ProvisioningService, ImaginaUpdaterClient, hooks documentados)
-- **Gates de calidad:** PHPStan level 8 en verde (0 errores) · PHPUnit 134 tests / 437 aserciones en verde · PHPCS en verde
+- **Fase actual:** Fase 4 — Emails + provisión → **COMPLETADA (código + tests) ✅**
+- **Siguiente paso:** Fase 5 — Admin SPA (React), empezando por Ajustes → Productos → Suscripciones → Dashboard → resto
+- **Gates de calidad:** PHPStan level 8 en verde (0 errores) · PHPUnit 157 tests / 501 aserciones en verde · PHPCS en verde
+
+---
+
+## Sesión 2026-07-03 (continuación 3) — Fase 4 completa
+
+### Tareas completadas
+
+1. **EmailTemplate** (`src/Mail/`): plantilla HTML única de 600px con estilos inline (compatible clientes de correo), logo y color de marca desde ajustes (color validado contra `#RRGGBB`, fallback índigo), CTA opcional, pie automático.
+2. **Mailer**: envío sobre `wp_mail` (un plugin SMTP se engancha ahí sin tocar código), header From configurable, `sendToAdmin` a `admin_email`, cada envío/fallo registrado en `impay_logs`.
+3. **EmailNotifications** — las plantillas de la sección 12 colgadas de los hooks de dominio:
+   - Bienvenida + licencia (solo primera activación, flag `welcome_sent` en meta; relee la sub para encontrar la licencia recién provisionada)
+   - Recibo de pago (`impay_payment_approved`, nuevo hook en PaymentService, un recibo por pago aprobado)
+   - Pago fallido día 0/3/7 (`impay_dunning_notice`; el día 0 también notifica al admin)
+   - Recordatorio de renovación 30/15/5/0 (`impay_renewal_reminder`, CTA = URL del link de pago)
+   - Renovación confirmada (`impay_renewal_paid`)
+   - Cancelada y servicio suspendido (transiciones/suspensión)
+   - Establecer contraseña (método público `passwordSetup`, se invoca en Fase 6 al crear el usuario WP)
+   - Admin: venta nueva (`impay_order_paid`) y tarea de provisión manual (`impay_manual_task`)
+4. **ProvisioningService**: según `provisioning.type` del producto — `updater_license` (crea licencia vía ImaginaUpdaterClient, guarda `license_key` en meta, reactiva si ya existía; si la API falla cae a tarea manual), `hook` (`do_action('impay_provision')`), `manual` (tarea pendiente en meta + log + aviso admin). `suspend()` desactiva la licencia (colgado de `impay_service_suspend`, `cancelled` y `expired`).
+5. **ImaginaUpdaterClient**: POST `/wp-json/imagina-updater/v1/licenses` (+ `/activate`, `/deactivate`) con header `X-Api-Key` (guardada cifrada).
+6. **Hooks** (`src/Core/Hooks.php`): listeners internos registrados con prioridades — provisión 10, emails 20 (el welcome ya encuentra la licencia). `docs/HOOKS.md` documenta todos los hooks públicos con ejemplos.
+7. **Tests nuevos (23)**: Mailer/plantilla (branding, headers, color inválido), ProvisioningService (licencia nueva/reactivación/fallback manual/hook/manual/suspensión), ImaginaUpdaterClient (payloads, API key, errores), EmailNotifications (welcome única con licencia, recibo formateado es-CO, dunning día 0 vs 7, CTA de renovación).
+
+### Decisiones tomadas (Fase 4)
+
+| # | Decisión | Razón |
+|---|---|---|
+| 33 | Nuevo hook `impay_payment_approved(GatewayPayment, int $customerId)` disparado en PaymentService | El recibo aplica a pagos únicos Y renovaciones; el upsert deduplica reintentos |
+| 34 | Bienvenida una sola vez vía flag `welcome_sent` en meta | "subscription active (primera vez)" del spec; las reactivaciones no reenvían bienvenida |
+| 35 | Prioridades: provisión 10, emails 20 en los mismos hooks | El correo de bienvenida debe incluir la licencia recién creada |
+| 36 | Tareas manuales en `meta.manual_task` + log canal `provisioning` + email admin (sin tabla nueva) | Volumen bajo (10-20 productos); el dashboard (Fase 5) las lista desde ahí |
+| 37 | Contrato del API de Imagina Updater asumido (`/licenses`, `/activate`, `/deactivate`, header X-Api-Key) | El spec no lo define; encapsulado en el cliente, ajustar en un solo archivo |
+| 38 | Si falla la creación de licencia, la activación NO se revierte: se crea tarea manual + email admin | El cliente ya pagó; el equipo resuelve la licencia a mano |
+| 39 | "Textos editables por plantilla" del admin (sección 10) se difiere a Fase 5 (Ajustes) | Los textos viven en EmailNotifications; el editor de plantillas es UI de Ajustes |
+
+### Pendientes acumulados
+
+- Sandbox MP y PayPal (checklist al desplegar, con credenciales).
+- `passwordSetup` se conecta a la creación de usuarios WP en Fase 6.
+- Editor de textos de emails (variables `{{customer_name}}`) en Ajustes, Fase 5.
+
+### Siguiente paso (Fase 5 — Admin SPA)
+
+1. Scaffolding frontend: Vite multi-entry (admin/portal/checkout), Tailwind prefijo `impay-`, shadcn/ui, TanStack Query.
+2. Endpoints admin REST que faltan: CRUD productos/precios, listados (subscriptions/customers/orders/payments), acciones de suscripción, dashboard metrics, webhook events + retry, export CSV.
+3. Página full-screen en wp-admin (`#impay-root`) con las 7 vistas, empezando por **Ajustes**.
 
 ---
 
