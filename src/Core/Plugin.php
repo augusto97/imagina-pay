@@ -14,7 +14,11 @@ use ImaginaPay\Domain\Repositories\ProductRepository;
 use ImaginaPay\Domain\Repositories\SubscriptionRepository;
 use ImaginaPay\Domain\Repositories\WebhookEventRepository;
 use ImaginaPay\Domain\Services\CheckoutService;
+use ImaginaPay\Domain\Services\DunningService;
+use ImaginaPay\Domain\Services\MaintenanceService;
 use ImaginaPay\Domain\Services\PaymentService;
+use ImaginaPay\Domain\Services\ReconciliationService;
+use ImaginaPay\Domain\Services\RenewalService;
 use ImaginaPay\Domain\Services\SubscriptionService;
 use ImaginaPay\Domain\StateMachine\SubscriptionStateMachine;
 use ImaginaPay\Exceptions\ImaginaPayException;
@@ -23,6 +27,9 @@ use ImaginaPay\Gateways\MercadoPago\MercadoPagoClient;
 use ImaginaPay\Gateways\MercadoPago\MercadoPagoGateway;
 use ImaginaPay\Gateways\MercadoPago\MercadoPagoWebhookHandler;
 use ImaginaPay\Gateways\MercadoPago\MercadoPagoWebhookVerifier;
+use ImaginaPay\Gateways\PayPal\PayPalClient;
+use ImaginaPay\Gateways\PayPal\PayPalGateway;
+use ImaginaPay\Gateways\PayPal\PayPalWebhookHandler;
 use ImaginaPay\Http\HttpClient;
 use ImaginaPay\Jobs\Scheduler;
 use ImaginaPay\Rest\CheckoutController;
@@ -157,7 +164,9 @@ final class Plugin
             $c->get(MercadoPagoClient::class),
             $c->get(OrderRepository::class),
             $c->get(SubscriptionRepository::class),
+            $c->get(PaymentLinkRepository::class),
             $c->get(PaymentService::class),
+            $c->get(RenewalService::class),
             $c->get(SubscriptionStateMachine::class),
             $c->get(Logger::class),
         ));
@@ -173,10 +182,39 @@ final class Plugin
             $c->get(Logger::class),
         ));
 
-        // Registro de pasarelas (PayPal llega en Fase 3).
+        // PayPal.
+        $c->singleton(PayPalClient::class, static fn (Container $c): PayPalClient => new PayPalClient(
+            $c->get(HttpClient::class),
+            $c->get(Settings::class),
+        ));
+
+        $c->singleton(PayPalWebhookHandler::class, static fn (Container $c): PayPalWebhookHandler => new PayPalWebhookHandler(
+            $c->get(PayPalClient::class),
+            $c->get(OrderRepository::class),
+            $c->get(SubscriptionRepository::class),
+            $c->get(PaymentLinkRepository::class),
+            $c->get(PaymentService::class),
+            $c->get(RenewalService::class),
+            $c->get(SubscriptionStateMachine::class),
+            $c->get(Logger::class),
+        ));
+
+        $c->singleton(PayPalGateway::class, static fn (Container $c): PayPalGateway => new PayPalGateway(
+            $c->get(PayPalClient::class),
+            $c->get(PayPalWebhookHandler::class),
+            $c->get(ProductRepository::class),
+            $c->get(CustomerRepository::class),
+            $c->get(PriceRepository::class),
+            $c->get(PaymentLinkRepository::class),
+            $c->get(Clock::class),
+            $c->get(Logger::class),
+        ));
+
+        // Registro de pasarelas.
         $c->singleton(GatewayRegistry::class, static function (Container $c): GatewayRegistry {
             $registry = new GatewayRegistry();
             $registry->register($c->get(MercadoPagoGateway::class));
+            $registry->register($c->get(PayPalGateway::class));
 
             return $registry;
         });
@@ -206,6 +244,44 @@ final class Plugin
             $c->get(SubscriptionRepository::class),
             $c->get(SubscriptionStateMachine::class),
             $c->get(GatewayRegistry::class),
+            $c->get(Clock::class),
+            $c->get(Logger::class),
+        ));
+
+        $c->singleton(RenewalService::class, static fn (Container $c): RenewalService => new RenewalService(
+            $c,
+            $c->get(SubscriptionRepository::class),
+            $c->get(OrderRepository::class),
+            $c->get(PaymentLinkRepository::class),
+            $c->get(PriceRepository::class),
+            $c->get(ProductRepository::class),
+            $c->get(CustomerRepository::class),
+            $c->get(PaymentService::class),
+            $c->get(SubscriptionStateMachine::class),
+            $c->get(Clock::class),
+            $c->get(Logger::class),
+        ));
+
+        $c->singleton(DunningService::class, static fn (Container $c): DunningService => new DunningService(
+            $c->get(SubscriptionRepository::class),
+            $c->get(Clock::class),
+            $c->get(Logger::class),
+        ));
+
+        $c->singleton(ReconciliationService::class, static fn (Container $c): ReconciliationService => new ReconciliationService(
+            $c->get(SubscriptionRepository::class),
+            $c->get(OrderRepository::class),
+            $c->get(PaymentLinkRepository::class),
+            $c->get(GatewayRegistry::class),
+            $c->get(SubscriptionStateMachine::class),
+            $c->get(Clock::class),
+            $c->get(Logger::class),
+        ));
+
+        $c->singleton(MaintenanceService::class, static fn (Container $c): MaintenanceService => new MaintenanceService(
+            $c->get(LogRepository::class),
+            $c->get(WebhookEventRepository::class),
+            $c->get(Settings::class),
             $c->get(Clock::class),
             $c->get(Logger::class),
         ));
