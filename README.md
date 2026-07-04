@@ -47,18 +47,26 @@ y jamás se muestran completas.
 
 ## Cómo vender un producto
 
-El plugin no lista productos en el sitio: cada producto **activo** tiene su
-propia página de pago en `/pagar/{slug}` (o `?impay_product={slug}` sin
-permalinks). Para ponerlo a la venta:
+Cada producto **activo** tiene su propia página de pago en `/pagar/{slug}`
+(o `?impay_product={slug}` sin permalinks). Para ponerlo a la venta:
 
-1. **Imagina Pay → Productos → Nuevo producto**: nombre, tipo, al menos un
-   precio y estado **Activo**.
+1. **Imagina Pay → Productos → Nuevo producto**: nombre, descripción,
+   características (una por línea), imagen, tipo, al menos un precio y
+   estado **Activo**.
 2. Copia su **link de venta** desde la card del producto y úsalo donde
    quieras: menú, botón de Elementor, email, WhatsApp…
 3. O inserta un botón de compra en cualquier página/builder con el shortcode:
 
    ```
    [impay_boton producto="vps-cloud-2gb" texto="Comprar ahora" color="#4F46E5"]
+   ```
+
+4. O muestra el **catálogo completo** (todos los productos activos con
+   imagen, características, precio "desde" y botón de compra) en cualquier
+   página con:
+
+   ```
+   [impay_productos columnas="3"]
    ```
 
 El flujo completo (pago → confirmación → email → provisión → portal del
