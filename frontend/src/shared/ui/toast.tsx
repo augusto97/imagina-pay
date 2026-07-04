@@ -35,7 +35,7 @@ export function Toaster() {
   const toasts = useToasts((state) => state.toasts);
 
   return (
-    <div className="impay-fixed impay-bottom-6 impay-right-6 impay-z-[60] impay-flex impay-flex-col impay-gap-2">
+    <div className="impay-fixed impay-bottom-6 impay-right-6 impay-z-[100002] impay-flex impay-flex-col impay-gap-2">
       <AnimatePresence>
         {toasts.map((item) => (
           <motion.div

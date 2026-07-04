@@ -22,7 +22,7 @@ export function Drawer({
       {open && (
         <>
           <motion.div
-            className="impay-fixed impay-inset-0 impay-z-40 impay-bg-black/20"
+            className="impay-fixed impay-inset-0 impay-z-[100000] impay-bg-black/20"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
@@ -30,7 +30,7 @@ export function Drawer({
             onClick={onClose}
           />
           <motion.aside
-            className={`impay-fixed impay-right-0 impay-top-0 impay-z-50 impay-h-full impay-overflow-y-auto impay-bg-white impay-shadow-xl ${
+            className={`impay-fixed impay-right-0 impay-top-0 impay-z-[100001] impay-h-full impay-overflow-y-auto impay-bg-white impay-shadow-xl ${
               wide ? 'impay-w-[560px]' : 'impay-w-[440px]'
             } impay-max-w-full`}
             initial={{ x: 24, opacity: 0 }}
