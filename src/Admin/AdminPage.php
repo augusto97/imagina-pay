@@ -7,9 +7,9 @@ namespace ImaginaPay\Admin;
 use ImaginaPay\Frontend\ViteAssets;
 
 /**
- * Página "Imagina Pay" en wp-admin: monta el SPA React full-screen.
- * #impay-root es un overlay fijo que cubre el contenido y el menú de WP
- * (queda visible solo la admin bar), estilo Imagina Reports.
+ * Página "Imagina Pay" en wp-admin: monta el SPA React dentro del canvas
+ * normal de WordPress (menú y admin bar visibles) — el plugin debe
+ * sentirse parte de WordPress, no una aplicación aparte.
  */
 final class AdminPage
 {
@@ -49,25 +49,12 @@ final class AdminPage
             'version' => defined('IMPAY_VERSION') ? (string) constant('IMPAY_VERSION') : '',
         ];
 
-        // Overlay full-screen: cubre el menú y el contenido de WP; la admin
-        // bar (z-index 99999) queda accesible por encima.
-        echo '<style>
-            #impay-root {
-                position: fixed;
-                top: 32px;
-                left: 0;
-                right: 0;
-                bottom: 0;
-                z-index: 99990;
-                background: #FAFAFA;
-                overflow: hidden;
-            }
-            @media screen and (max-width: 782px) {
-                #impay-root { top: 46px; }
-            }
-            #wpfooter, .update-nag, .notice, #wpbody-content > .error { display: none !important; }
-        </style>';
         echo '<script type="application/json" id="impay-boot">' . wp_json_encode($bootData) . '</script>';
+
+        // El h1 (oculto) da a WordPress su punto de anclaje para las notices
+        // y mantiene la jerarquía de encabezados para lectores de pantalla.
+        echo '<div class="wrap">';
+        echo '<h1 class="screen-reader-text">Imagina Pay</h1>';
         echo '<div id="impay-root">';
 
         if (!ViteAssets::isBuilt()) {
@@ -76,6 +63,6 @@ final class AdminPage
             echo '</div>';
         }
 
-        echo '</div>';
+        echo '</div></div>';
     }
 }

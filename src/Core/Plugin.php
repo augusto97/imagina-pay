@@ -98,6 +98,11 @@ final class Plugin
 
         if (is_admin()) {
             $container->get(AdminPage::class)->register();
+
+            // Migración de esquema tras update por zip (no dispara activación).
+            add_action('admin_init', static function (): void {
+                Activator::maybeUpgrade();
+            });
         }
     }
 

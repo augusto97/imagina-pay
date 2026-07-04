@@ -52,7 +52,10 @@ Cada producto **activo** tiene su propia página de pago en `/pagar/{slug}`
 
 1. **Imagina Pay → Productos → Nuevo producto**: nombre, descripción,
    características (una por línea), imagen, tipo, al menos un precio y
-   estado **Activo**.
+   estado **Activo**. Si el producto necesita información adicional del
+   comprador (dominio, datos del titular, notas…), defínela en **Campos
+   extra del checkout**: las respuestas llegan en el email de venta y se
+   ven en la página de Pagos.
 2. Copia su **link de venta** desde la card del producto y úsalo donde
    quieras: menú, botón de Elementor, email, WhatsApp…
 3. O inserta un botón de compra en cualquier página/builder con el shortcode:

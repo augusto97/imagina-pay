@@ -105,6 +105,11 @@ export function PaymentsPage() {
                   <td className="impay-px-4 impay-py-3">
                     <p>{payment.customer?.full_name ?? '—'}</p>
                     <p className="impay-text-xs impay-text-muted">{payment.customer?.email}</p>
+                    {(payment.custom_fields ?? []).map((field) => (
+                      <p key={field.key} className="impay-text-xs impay-text-muted">
+                        <span className="impay-font-medium">{field.label}:</span> {field.value}
+                      </p>
+                    ))}
                   </td>
                   <td className="impay-px-4 impay-py-3 impay-text-muted">{payment.method ?? '—'}</td>
                   <td className="impay-px-4 impay-py-3 impay-text-muted">

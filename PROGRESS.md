@@ -6,10 +6,32 @@
 
 ## Estado actual
 
-- **Versión publicada:** v1.2.0 (rama `release`, zip instalable)
+- **Versión publicada:** v1.3.0 (rama `release`, zip instalable)
 - **Fase actual:** v1 completada ✅ + iteración post-lanzamiento por feedback del usuario en sitio real
 - **Siguiente paso:** QA end-to-end en sandbox (checklist en README.md, requiere credenciales de MP/PayPal) → producción. Fase 8 (Wompi + BillingEngine) queda para v2 cuando se decida.
 - **Gates de calidad:** PHPStan level 8 en verde · PHPUnit 157 tests / 501 aserciones en verde · PHPCS en verde · Frontend: tsc + Vite en verde · Checkout ~66KB gz JS+CSS (presupuesto <90KB cumplido)
+
+---
+
+## Sesión 2026-07-04 (continuación) — v1.3.0: admin en el canvas de WP + campos personalizados del checkout
+
+Feedback del usuario: (a) el admin full-screen no se justifica con tan pocas opciones — debe sentirse parte de WordPress; (b) revisar si la funcionalidad está completa; (c) poder pedir más/menos información en el checkout según el producto.
+
+### Tareas completadas
+
+1. **Admin dentro del canvas de wp-admin**: se eliminó el overlay fijo full-screen. El SPA ahora se monta en el `.wrap` normal (menú y admin bar de WP visibles) con navegación por pestañas horizontales en la cabecera en lugar de sidebar propia. Se subieron los z-index de drawer/toasts por encima del chrome de wp-admin (100000+). Notices de WP ya no se ocultan.
+2. **Campos personalizados del checkout por producto**: nueva columna `custom_fields` en `impay_products` (definición: `[{key, label, type: text|textarea|select, required, options?}]`, máx. 15). Editor en el drawer del producto (añadir/quitar, tipo, obligatorio, opciones para select). El checkout los renderiza tras "Empresa" y valida los obligatorios en cliente y servidor (`CheckoutService::collectCustomFields`: required, opciones válidas, máx. 1000 chars, strip tags). Las respuestas se guardan en `orders.meta.custom_fields` `[{key, label, value}]`, llegan en el email de venta al admin y se muestran en la página de Pagos (bajo el cliente).
+3. **Upgrade de esquema sin reactivación**: `Activator::maybeUpgrade()` (DB_VERSION 1.0.0 → 1.1.0) corre en `admin_init` cuando cambia la versión — los updates por zip no disparan el hook de activación. Costo: un `get_option` autoloaded.
+4. **Auditoría de funcionalidad vs spec**: superficie REST completa (checkout, orders/status, webhooks, portal completo con recibos, admin con CRUD, acciones de suscripción cancel/pause/resume/extend, payment links, webhook retry, métricas, export CSV, settings). Pendientes ya documentados: QA sandbox con credenciales reales, editor de textos de emails (v1.1), link mágico (v1.1), Wompi (v2).
+
+### Decisiones tomadas
+
+| # | Decisión | Razón |
+|---|---|---|
+| 61 | Admin en canvas con pestañas horizontales (no sidebar) | Con 7 secciones, las tabs caben en una fila y el plugin "se siente WordPress"; pedido explícito del usuario |
+| 62 | Tipos de campo v1: texto, texto largo y lista de opciones | Cubren los casos reales (dominio, notas, variante); checkbox/archivo agregan complejidad sin caso de uso actual |
+| 63 | Respuestas en `orders.meta` (JSON), no tabla nueva | Volumen bajo (10–20 productos), sin necesidad de consultas por campo; el spec ya reserva `meta` para esto |
+| 64 | `key` del campo estable al editar el label | Evita huérfanos: respuestas históricas siguen casando con su definición |
 
 ---
 

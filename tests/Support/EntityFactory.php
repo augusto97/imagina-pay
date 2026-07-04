@@ -27,10 +27,14 @@ trait EntityFactory
         return new \DateTimeImmutable('2026-07-03 12:00:00', new \DateTimeZone('UTC'));
     }
 
+    /**
+     * @param list<array<string, mixed>>|null $customFields
+     */
     private function makeProduct(
         ProductType $type = ProductType::Subscription,
         ProductStatus $status = ProductStatus::Active,
         int $id = 2,
+        ?array $customFields = null,
     ): Product {
         return new Product(
             id: $id,
@@ -43,6 +47,7 @@ trait EntityFactory
             imageUrl: null,
             status: $status,
             provisioning: null,
+            customFields: $customFields,
             createdAt: $this->baseDate(),
             updatedAt: $this->baseDate(),
         );

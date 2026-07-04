@@ -114,6 +114,9 @@ final class ProductsController extends AbstractController
             'image_url' => isset($input['image_url']) ? (string) $input['image_url'] : null,
             'status' => (string) ($input['status'] ?? ProductStatus::Draft->value),
             'provisioning' => isset($input['provisioning']) ? (string) wp_json_encode($input['provisioning']) : null,
+            'custom_fields' => isset($input['custom_fields']) && is_array($input['custom_fields'])
+                ? (string) wp_json_encode($this->normalizeCustomFields($input['custom_fields']))
+                : null,
             'created_at' => $now->format('Y-m-d H:i:s'),
             'updated_at' => $now->format('Y-m-d H:i:s'),
         ]);
@@ -155,6 +158,12 @@ final class ProductsController extends AbstractController
 
         if (array_key_exists('provisioning', $input)) {
             $data['provisioning'] = (string) wp_json_encode($input['provisioning']);
+        }
+
+        if (array_key_exists('custom_fields', $input)) {
+            $data['custom_fields'] = (string) wp_json_encode(
+                $this->normalizeCustomFields(is_array($input['custom_fields']) ? $input['custom_fields'] : []),
+            );
         }
 
         $this->products->update($product->id, $data);
@@ -265,6 +274,96 @@ final class ProductsController extends AbstractController
             'image_url' => ['type' => 'string', 'max' => 500],
             'status' => ['type' => 'string', 'enum' => array_column(ProductStatus::cases(), 'value')],
             'provisioning' => ['type' => 'array'],
+            'custom_fields' => ['type' => 'array'],
         ]);
+    }
+
+    /**
+     * Normaliza la definición de campos extra del checkout. Cada campo:
+     * {key, label, type: text|textarea|select, required, options?}. El key
+     * se conserva si viene (estabilidad al editar el label) o se deriva.
+     *
+     * @param array<int|string, mixed> $raw
+     * @return list<array<string, mixed>>
+     */
+    private function normalizeCustomFields(array $raw): array
+    {
+        $fields = [];
+        $usedKeys = [];
+
+        foreach ($raw as $item) {
+            if (!is_array($item)) {
+                continue;
+            }
+
+            $label = trim((string) ($item['label'] ?? ''));
+
+            if ($label === '' || mb_strlen($label) > 120) {
+                continue;
+            }
+
+            $type = (string) ($item['type'] ?? 'text');
+
+            if (!in_array($type, ['text', 'textarea', 'select'], true)) {
+                $type = 'text';
+            }
+
+            $key = sanitize_key((string) ($item['key'] ?? ''));
+
+            if ($key === '') {
+                $key = sanitize_key(str_replace('-', '_', sanitize_title($label)));
+            }
+
+            if ($key === '') {
+                $key = 'campo';
+            }
+
+            // Keys únicos: un duplicado pisaría la respuesta de otro campo.
+            $base = $key;
+            $suffix = 2;
+
+            while (in_array($key, $usedKeys, true)) {
+                $key = $base . '_' . $suffix;
+                ++$suffix;
+            }
+
+            $usedKeys[] = $key;
+
+            $options = [];
+
+            if ($type === 'select') {
+                foreach ((array) ($item['options'] ?? []) as $option) {
+                    $option = trim((string) (is_scalar($option) ? $option : ''));
+
+                    if ($option !== '') {
+                        $options[] = mb_substr($option, 0, 120);
+                    }
+                }
+
+                // Un select sin opciones no es usable en el checkout.
+                if ($options === []) {
+                    $type = 'text';
+                }
+            }
+
+            if (count($fields) >= 15) {
+                throw new ValidationException(['custom_fields' => 'Máximo 15 campos personalizados por producto.']);
+            }
+
+            $field = [
+                'key' => $key,
+                'label' => $label,
+                'type' => $type,
+                'required' => (bool) ($item['required'] ?? false),
+            ];
+
+            if ($options !== []) {
+                $field['options'] = $options;
+            }
+
+            $fields[] = $field;
+        }
+
+        return $fields;
     }
 }

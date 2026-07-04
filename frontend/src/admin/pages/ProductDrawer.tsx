@@ -2,10 +2,19 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
 import { api, ApiError } from '@shared/api';
 import { intervalLabels, money } from '@shared/format';
-import type { Product } from '@shared/types';
+import type { CustomFieldDef, Product } from '@shared/types';
 import { Button, Field, Input, Select, Textarea } from '@shared/ui/primitives';
 import { Drawer } from '@shared/ui/layout';
 import { toast } from '@shared/ui/toast';
+
+/** Campo personalizado en edición: options como texto separado por comas. */
+interface CustomFieldRow {
+  key: string;
+  label: string;
+  type: string;
+  required: boolean;
+  options: string;
+}
 
 interface FormState {
   name: string;
@@ -17,6 +26,7 @@ interface FormState {
   status: string;
   provisioningType: string;
   updaterProductId: string;
+  customFields: CustomFieldRow[];
 }
 
 const emptyForm: FormState = {
@@ -29,7 +39,17 @@ const emptyForm: FormState = {
   status: 'active',
   provisioningType: '',
   updaterProductId: '',
+  customFields: [],
 };
+
+const toFieldRows = (fields: CustomFieldDef[] | null | undefined): CustomFieldRow[] =>
+  (fields ?? []).map((field) => ({
+    key: field.key,
+    label: field.label,
+    type: field.type,
+    required: field.required,
+    options: (field.options ?? []).join(', '),
+  }));
 
 const emptyPrice = { currency: 'COP', amount: '', interval: 'month' };
 
@@ -82,6 +102,7 @@ export function ProductDrawer({
             status: product.status,
             provisioningType: product.provisioning?.type ?? '',
             updaterProductId: String(product.provisioning?.updater_product_id ?? ''),
+            customFields: toFieldRows(product.custom_fields),
           }
         : emptyForm,
     );
@@ -101,6 +122,17 @@ export function ProductDrawer({
       .map((line) => line.trim())
       .filter(Boolean),
     image_url: form.imageUrl.trim() || undefined,
+    custom_fields: form.customFields
+      .filter((field) => field.label.trim() !== '')
+      .map((field) => ({
+        ...(field.key ? { key: field.key } : {}),
+        label: field.label.trim(),
+        type: field.type,
+        required: field.required,
+        ...(field.type === 'select'
+          ? { options: field.options.split(',').map((option) => option.trim()).filter(Boolean) }
+          : {}),
+      })),
     status: form.status,
     provisioning: form.provisioningType
       ? {
@@ -285,6 +317,83 @@ export function ProductDrawer({
             />
           </Field>
         )}
+
+        <div className="impay-border-t impay-border-line impay-pt-4">
+          <div className="impay-mb-3 impay-flex impay-items-center impay-justify-between">
+            <h3 className="impay-text-sm impay-font-semibold">Campos extra del checkout</h3>
+            <Button
+              variant="ghost"
+              onClick={() =>
+                set({
+                  customFields: [...form.customFields, { key: '', label: '', type: 'text', required: false, options: '' }],
+                })
+              }
+            >
+              + Añadir campo
+            </Button>
+          </div>
+          <p className="impay-mb-3 impay-text-xs impay-text-muted">
+            Información adicional que se pedirá al comprador de este producto (ej: dominio del sitio, cédula del
+            titular, notas). Las respuestas llegan en el email de venta y quedan en el pedido.
+          </p>
+
+          {form.customFields.map((field, index) => {
+            const updateField = (patch: Partial<CustomFieldRow>) =>
+              set({
+                customFields: form.customFields.map((current, i) => (i === index ? { ...current, ...patch } : current)),
+              });
+
+            return (
+              <div
+                key={index}
+                className="impay-mb-2 impay-space-y-2 impay-rounded-control impay-border impay-border-line impay-p-3"
+              >
+                <div className="impay-flex impay-items-end impay-gap-2">
+                  <Field label="Etiqueta del campo">
+                    <Input
+                      value={field.label}
+                      onChange={(e) => updateField({ label: e.target.value })}
+                      placeholder="Dominio de tu sitio"
+                    />
+                  </Field>
+                  <Field label="Tipo">
+                    <Select value={field.type} onChange={(e) => updateField({ type: e.target.value })}>
+                      <option value="text">Texto</option>
+                      <option value="textarea">Texto largo</option>
+                      <option value="select">Lista de opciones</option>
+                    </Select>
+                  </Field>
+                  <button
+                    onClick={() => set({ customFields: form.customFields.filter((_, i) => i !== index) })}
+                    className="impay-h-10 impay-shrink-0 impay-px-2 impay-text-xs impay-text-muted hover:impay-text-bad"
+                    title="Quitar campo"
+                  >
+                    Quitar
+                  </button>
+                </div>
+
+                {field.type === 'select' && (
+                  <Field label="Opciones (separadas por coma)">
+                    <Input
+                      value={field.options}
+                      onChange={(e) => updateField({ options: e.target.value })}
+                      placeholder="Básico, Estándar, Premium"
+                    />
+                  </Field>
+                )}
+
+                <label className="impay-flex impay-items-center impay-gap-2 impay-text-sm">
+                  <input
+                    type="checkbox"
+                    checked={field.required}
+                    onChange={(e) => updateField({ required: e.target.checked })}
+                  />
+                  Obligatorio
+                </label>
+              </div>
+            );
+          })}
+        </div>
 
         <div className="impay-border-t impay-border-line impay-pt-4">
           <h3 className="impay-mb-3 impay-text-sm impay-font-semibold">

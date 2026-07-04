@@ -35,7 +35,8 @@ export function CheckoutPage() {
   const [priceUuid, setPriceUuid] = useState(product?.prices[0]?.uuid ?? '');
   const [gateway, setGateway] = useState('mercadopago');
   const [values, setValues] = useState<FormValues>(initialValues);
-  const [errors, setErrors] = useState<Partial<Record<keyof FormValues | 'form', string>>>({});
+  const [custom, setCustom] = useState<Record<string, string>>({});
+  const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
   const [honeypot, setHoneypot] = useState('');
 
@@ -46,16 +47,25 @@ export function CheckoutPage() {
   const availableForGateway = (candidate: Price) =>
     gateway === 'paypal' ? candidate.currency === 'USD' : candidate.currency === 'COP';
 
+  const customFields = product.custom_fields ?? [];
+
   const submit = async () => {
     const parsed = schema.safeParse(values);
+    const fieldErrors: Record<string, string> = {};
 
     if (!parsed.success) {
-      const fieldErrors: Record<string, string> = {};
-
       for (const issue of parsed.error.issues) {
         fieldErrors[String(issue.path[0])] = issue.message;
       }
+    }
 
+    for (const field of customFields) {
+      if (field.required && !(custom[field.key] ?? '').trim()) {
+        fieldErrors[`custom_${field.key}`] = 'Este campo es obligatorio.';
+      }
+    }
+
+    if (Object.keys(fieldErrors).length > 0 || !parsed.success) {
       setErrors(fieldErrors);
       return;
     }
@@ -69,6 +79,7 @@ export function CheckoutPage() {
         price: priceUuid,
         gateway,
         website: honeypot,
+        ...(customFields.length > 0 ? { custom_fields: custom } : {}),
         ...parsed.data,
       });
 
@@ -166,6 +177,42 @@ export function CheckoutPage() {
               <span className="impay-mb-1.5 impay-block impay-font-medium">Empresa (opcional)</span>
               <input className={inputClass} value={values.company} onChange={set('company')} />
             </label>
+
+            {/* Campos personalizados definidos por el producto */}
+            {customFields.map((field) => {
+              const value = custom[field.key] ?? '';
+              const setValue = (next: string) => setCustom((current) => ({ ...current, [field.key]: next }));
+              const error = errors[`custom_${field.key}`];
+
+              return (
+                <label key={field.key} className="impay-block impay-text-sm">
+                  <span className="impay-mb-1.5 impay-block impay-font-medium">
+                    {field.label}
+                    {!field.required && <span className="impay-font-normal impay-text-muted"> (opcional)</span>}
+                  </span>
+                  {field.type === 'textarea' ? (
+                    <textarea
+                      className={`${inputClass} impay-h-auto impay-py-2`}
+                      rows={3}
+                      value={value}
+                      onChange={(event) => setValue(event.target.value)}
+                    />
+                  ) : field.type === 'select' ? (
+                    <select className={inputClass} value={value} onChange={(event) => setValue(event.target.value)}>
+                      <option value="">Selecciona…</option>
+                      {(field.options ?? []).map((option) => (
+                        <option key={option} value={option}>
+                          {option}
+                        </option>
+                      ))}
+                    </select>
+                  ) : (
+                    <input className={inputClass} value={value} onChange={(event) => setValue(event.target.value)} />
+                  )}
+                  {error && <span className="impay-mt-1 impay-block impay-text-xs impay-text-bad">{error}</span>}
+                </label>
+              );
+            })}
 
             {/* Honeypot: invisible para humanos */}
             <input

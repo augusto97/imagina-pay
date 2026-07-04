@@ -13,6 +13,14 @@ export interface Price {
   gateway_refs: Record<string, string> | null;
 }
 
+export interface CustomFieldDef {
+  key: string;
+  label: string;
+  type: 'text' | 'textarea' | 'select';
+  required: boolean;
+  options?: string[];
+}
+
 export interface Product {
   uuid: string;
   name: string;
@@ -23,6 +31,7 @@ export interface Product {
   image_url: string | null;
   status: 'active' | 'archived' | 'draft';
   provisioning: { type?: string; updater_product_id?: number } | null;
+  custom_fields: CustomFieldDef[] | null;
   prices: Price[];
   checkout_url?: string;
   created_at: string;
@@ -57,6 +66,12 @@ export interface Subscription {
   created_at: string;
 }
 
+export interface CustomFieldValue {
+  key: string;
+  label: string;
+  value: string;
+}
+
 export interface Payment {
   uuid: string;
   gateway: string;
@@ -68,11 +83,13 @@ export interface Payment {
   method: string | null;
   paid_at: string | null;
   customer: Customer | null;
+  custom_fields: CustomFieldValue[] | null;
   created_at: string;
 }
 
 export interface Order {
   uuid: string;
+  custom_fields?: CustomFieldValue[] | null;
   kind: string;
   status: string;
   currency: string;

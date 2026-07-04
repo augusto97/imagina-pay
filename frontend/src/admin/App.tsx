@@ -32,45 +32,36 @@ export function App() {
   const [route, navigate] = useHashRoute('dashboard');
   const baseRoute = route.split('/')[0];
 
+  // Layout dentro del canvas de wp-admin (menú y admin bar visibles):
+  // cabecera con pestañas horizontales en lugar de sidebar propia.
   return (
-    <div className="impay-flex impay-h-full impay-min-h-0 impay-w-full impay-bg-canvas">
-      <aside className="impay-flex impay-h-full impay-w-60 impay-shrink-0 impay-flex-col impay-overflow-y-auto impay-border-r impay-border-line impay-bg-white">
-        <div className="impay-px-5 impay-py-5">
-          <span className="impay-text-lg impay-font-semibold impay-tracking-tight">
+    <div className="impay-w-full impay-pb-8 impay-pr-3 impay-pt-2">
+      <header className="impay-mb-6 impay-flex impay-flex-wrap impay-items-center impay-justify-between impay-gap-3">
+        <div className="impay-flex impay-items-baseline impay-gap-2">
+          <span className="impay-text-xl impay-font-semibold impay-tracking-tight">
             Imagina <span className="impay-text-accent">Pay</span>
           </span>
+          {boot().version && <span className="impay-text-xs impay-text-muted">v{boot().version}</span>}
         </div>
-        <nav className="impay-flex-1 impay-space-y-0.5 impay-px-3">
+        <nav className="impay-flex impay-flex-wrap impay-gap-1 impay-rounded-card impay-border impay-border-line impay-bg-white impay-p-1 impay-shadow-card">
           {NAV.map(({ route: itemRoute, label, icon: Icon }) => (
             <button
               key={itemRoute}
               onClick={() => navigate(itemRoute)}
-              className={`impay-flex impay-w-full impay-items-center impay-gap-3 impay-rounded-control impay-px-3 impay-py-2 impay-text-sm impay-font-medium impay-transition-colors ${
+              className={`impay-flex impay-items-center impay-gap-1.5 impay-rounded-control impay-px-3 impay-py-1.5 impay-text-sm impay-font-medium impay-transition-colors ${
                 baseRoute === itemRoute
                   ? 'impay-bg-accent-soft impay-text-accent'
                   : 'impay-text-muted hover:impay-bg-canvas hover:impay-text-ink'
               }`}
             >
-              <Icon size={17} />
+              <Icon size={15} />
               {label}
             </button>
           ))}
         </nav>
-        <div className="impay-space-y-2 impay-border-t impay-border-line impay-px-5 impay-py-4">
-          <a
-            href={boot().adminUrl ?? '/wp-admin/'}
-            className="impay-flex impay-items-center impay-gap-2 impay-text-xs impay-font-medium impay-text-muted hover:impay-text-accent"
-          >
-            ← Volver a WordPress
-          </a>
-          <p className="impay-text-xs impay-text-muted">
-            {boot().userName ?? 'Administrador'}
-            {boot().version ? ` · v${boot().version}` : ''}
-          </p>
-        </div>
-      </aside>
+      </header>
 
-      <main className="impay-h-full impay-min-w-0 impay-flex-1 impay-overflow-y-auto impay-p-8">
+      <main className="impay-min-w-0">
         {baseRoute === 'dashboard' && <DashboardPage />}
         {baseRoute === 'productos' && <ProductsPage />}
         {baseRoute === 'suscripciones' && <SubscriptionsPage />}

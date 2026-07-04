@@ -18,6 +18,9 @@ abstract class TestCase extends \PHPUnit\Framework\TestCase
         Monkey\setUp();
         Functions\stubEscapeFunctions();
         Functions\stubTranslationFunctions();
+        Functions\when('wp_strip_all_tags')->alias(
+            static fn (string $text): string => trim(strip_tags($text)),
+        );
     }
 
     protected function tearDown(): void
