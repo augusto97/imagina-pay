@@ -1,4 +1,10 @@
-import type { ButtonHTMLAttributes, InputHTMLAttributes, ReactNode, SelectHTMLAttributes } from 'react';
+import type {
+  ButtonHTMLAttributes,
+  InputHTMLAttributes,
+  ReactNode,
+  SelectHTMLAttributes,
+  TextareaHTMLAttributes,
+} from 'react';
 
 /** Primitivas de UI estilo shadcn: precisas, aireadas, sin ruido. */
 
@@ -39,6 +45,20 @@ export function Input({ className, ...props }: InputHTMLAttributes<HTMLInputElem
     <input
       className={cx(
         'impay-h-10 impay-w-full impay-rounded-control impay-border impay-border-line impay-bg-white impay-px-3',
+        'impay-text-sm impay-text-ink placeholder:impay-text-muted focus:impay-outline-none',
+        'focus:impay-ring-2 focus:impay-ring-accent/30 focus:impay-border-accent',
+        className,
+      )}
+      {...props}
+    />
+  );
+}
+
+export function Textarea({ className, ...props }: TextareaHTMLAttributes<HTMLTextAreaElement>) {
+  return (
+    <textarea
+      className={cx(
+        'impay-w-full impay-rounded-control impay-border impay-border-line impay-bg-white impay-px-3 impay-py-2',
         'impay-text-sm impay-text-ink placeholder:impay-text-muted focus:impay-outline-none',
         'focus:impay-ring-2 focus:impay-ring-accent/30 focus:impay-border-accent',
         className,

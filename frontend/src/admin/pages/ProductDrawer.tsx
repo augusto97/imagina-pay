@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 import { api, ApiError } from '@shared/api';
 import { intervalLabels, money } from '@shared/format';
 import type { Product } from '@shared/types';
-import { Button, Field, Input, Select } from '@shared/ui/primitives';
+import { Button, Field, Input, Select, Textarea } from '@shared/ui/primitives';
 import { Drawer } from '@shared/ui/layout';
 import { toast } from '@shared/ui/toast';
 
@@ -12,6 +12,8 @@ interface FormState {
   slug: string;
   type: string;
   description: string;
+  features: string;
+  imageUrl: string;
   status: string;
   provisioningType: string;
   updaterProductId: string;
@@ -22,6 +24,8 @@ const emptyForm: FormState = {
   slug: '',
   type: 'subscription',
   description: '',
+  features: '',
+  imageUrl: '',
   status: 'active',
   provisioningType: '',
   updaterProductId: '',
@@ -73,6 +77,8 @@ export function ProductDrawer({
             slug: product.slug,
             type: product.type,
             description: product.description ?? '',
+            features: (product.features ?? []).join('\n'),
+            imageUrl: product.image_url ?? '',
             status: product.status,
             provisioningType: product.provisioning?.type ?? '',
             updaterProductId: String(product.provisioning?.updater_product_id ?? ''),
@@ -90,6 +96,11 @@ export function ProductDrawer({
     slug: form.slug || undefined,
     type: form.type,
     description: form.description || undefined,
+    features: form.features
+      .split('\n')
+      .map((line) => line.trim())
+      .filter(Boolean),
+    image_url: form.imageUrl.trim() || undefined,
     status: form.status,
     provisioning: form.provisioningType
       ? {
@@ -210,8 +221,38 @@ export function ProductDrawer({
         </div>
 
         <Field label="Descripción">
-          <Input value={form.description} onChange={(e) => set({ description: e.target.value })} />
+          <Textarea
+            rows={3}
+            value={form.description}
+            onChange={(e) => set({ description: e.target.value })}
+            placeholder="Texto corto que verá el cliente en el checkout y el catálogo."
+          />
         </Field>
+
+        <Field label="Características (una por línea)">
+          <Textarea
+            rows={4}
+            value={form.features}
+            onChange={(e) => set({ features: e.target.value })}
+            placeholder={'2 GB de RAM\n40 GB SSD NVMe\nSoporte 24/7\nPanel de control incluido'}
+          />
+        </Field>
+
+        <Field label="Imagen (URL)">
+          <Input
+            value={form.imageUrl}
+            onChange={(e) => set({ imageUrl: e.target.value })}
+            placeholder="https://tusitio.com/wp-content/uploads/producto.jpg"
+            inputMode="url"
+          />
+        </Field>
+        {form.imageUrl.trim() !== '' && (
+          <img
+            src={form.imageUrl.trim()}
+            alt="Vista previa"
+            className="impay-h-28 impay-w-full impay-rounded-control impay-border impay-border-line impay-object-cover"
+          />
+        )}
 
         <div className="impay-grid impay-grid-cols-2 impay-gap-4">
           <Field label="Estado">

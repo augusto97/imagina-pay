@@ -4,9 +4,12 @@ declare(strict_types=1);
 
 namespace ImaginaPay\Frontend;
 
+use ImaginaPay\Domain\Entities\Price;
+use ImaginaPay\Domain\Entities\Product;
 use ImaginaPay\Domain\Repositories\PriceRepository;
 use ImaginaPay\Domain\Repositories\ProductRepository;
 use ImaginaPay\Rest\Admin\Presenter;
+use ImaginaPay\Support\Money;
 
 /**
  * Páginas propias del plugin: [impay_checkout], [impay_gracias],
@@ -57,6 +60,105 @@ final class Shortcodes
         add_shortcode('impay_gracias', fn (): string => $this->renderThanks());
         add_shortcode('impay_portal', fn (): string => $this->renderPortal());
         add_shortcode('impay_boton', fn (array|string $atts): string => $this->renderBuyButton(is_array($atts) ? $atts : []));
+        add_shortcode('impay_productos', fn (array|string $atts): string => $this->renderCatalog(is_array($atts) ? $atts : []));
+    }
+
+    /**
+     * [impay_productos columnas="3"] — catálogo público: grid de todos los
+     * productos activos con imagen, descripción, precio "desde" y botón de
+     * compra. Renderizado en PHP con estilos inline: cero assets extra.
+     *
+     * @param array<string|int, string> $atts
+     */
+    private function renderCatalog(array $atts): string
+    {
+        $columns = max(1, min(4, (int) ($atts['columnas'] ?? 3)));
+
+        $products = array_filter(
+            $this->products->all(),
+            static fn (Product $product): bool => $product->status->value === 'active',
+        );
+
+        if ($products === []) {
+            return '';
+        }
+
+        $cards = '';
+
+        foreach ($products as $product) {
+            $prices = array_values(array_filter(
+                $this->prices->findByProduct($product->id),
+                static fn (Price $price): bool => $price->status->value === 'active',
+            ));
+
+            if ($prices === []) {
+                continue;
+            }
+
+            usort($prices, static fn (Price $a, Price $b): int => $a->amount <=> $b->amount);
+            $lowest = $prices[0];
+
+            $intervalLabel = match ($lowest->interval->value) {
+                'month' => ' / mes',
+                'year' => ' / año',
+                default => '',
+            };
+
+            $imageHtml = $product->imageUrl !== null && $product->imageUrl !== ''
+                ? sprintf(
+                    '<img src="%s" alt="%s" loading="lazy" style="width:100%%;height:170px;object-fit:cover;border-radius:11px 11px 0 0;" />',
+                    esc_url($product->imageUrl),
+                    esc_attr($product->name),
+                )
+                : '<div style="width:100%;height:12px;"></div>';
+
+            $featuresHtml = '';
+
+            foreach (array_slice($product->features ?? [], 0, 4) as $feature) {
+                $featuresHtml .= sprintf(
+                    '<li style="margin:0 0 6px;padding-left:22px;position:relative;font-size:14px;color:#3F3F46;">'
+                    . '<span style="position:absolute;left:0;color:#059669;">✓</span>%s</li>',
+                    esc_html($feature),
+                );
+            }
+
+            $descriptionHtml = $product->description !== null && $product->description !== ''
+                ? sprintf('<p style="margin:0 0 12px;font-size:14px;color:#71717A;line-height:1.5;">%s</p>', esc_html($product->description))
+                : '';
+
+            $priceLabel = count($prices) > 1 ? 'Desde ' : '';
+
+            $cards .= sprintf(
+                '<div style="background:#fff;border:1px solid #E4E4E7;border-radius:12px;box-shadow:0 1px 2px rgb(0 0 0 / .04);display:flex;flex-direction:column;overflow:hidden;">'
+                . '%s'
+                . '<div style="padding:20px 22px 22px;display:flex;flex-direction:column;flex:1;">'
+                . '<h3 style="margin:0 0 8px;font-size:18px;font-weight:600;letter-spacing:-0.01em;color:#18181B;">%s</h3>'
+                . '%s'
+                . '<ul style="list-style:none;margin:0 0 16px;padding:0;">%s</ul>'
+                . '<div style="margin-top:auto;">'
+                . '<p style="margin:0 0 14px;font-size:22px;font-weight:600;color:#18181B;font-variant-numeric:tabular-nums;">%s%s<span style="font-size:14px;font-weight:400;color:#71717A;">%s</span></p>'
+                . '<a href="%s" style="display:block;text-align:center;padding:12px 0;border-radius:10px;background:#4F46E5;color:#fff;font-weight:600;font-size:15px;text-decoration:none;">Comprar ahora</a>'
+                . '</div></div></div>',
+                $imageHtml,
+                esc_html($product->name),
+                $descriptionHtml,
+                $featuresHtml,
+                esc_html($priceLabel),
+                esc_html(Money::of($lowest->amount, $lowest->currency)->format()),
+                esc_html($intervalLabel),
+                esc_url(self::checkoutUrl($product->slug)),
+            );
+        }
+
+        if ($cards === '') {
+            return '';
+        }
+
+        return sprintf(
+            '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%%,%dpx),1fr));gap:24px;">%s</div>',
+            $columns >= 4 ? 230 : ($columns === 3 ? 280 : 380),
+            $cards,
+        );
     }
 
     /**

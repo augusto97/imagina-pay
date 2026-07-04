@@ -66,6 +66,13 @@ export function ProductsPage() {
         <div className="impay-grid impay-grid-cols-3 impay-gap-4 max-xl:impay-grid-cols-2 max-lg:impay-grid-cols-1">
           {products.map((product) => (
             <Card key={product.uuid} className="impay-flex impay-flex-col impay-p-5">
+              {product.image_url && (
+                <img
+                  src={product.image_url}
+                  alt={product.name}
+                  className="-impay-mx-5 -impay-mt-5 impay-mb-4 impay-h-32 impay-w-[calc(100%+2.5rem)] impay-max-w-none impay-rounded-t-card impay-object-cover"
+                />
+              )}
               <div className="impay-flex impay-items-start impay-justify-between">
                 <div>
                   <h3 className="impay-font-semibold impay-tracking-tight">{product.name}</h3>
@@ -151,6 +158,26 @@ export function ProductsPage() {
             </Card>
           ))}
         </div>
+      )}
+
+      {products.some((product) => product.status === 'active') && (
+        <Card className="impay-mt-6 impay-p-5">
+          <h3 className="impay-text-sm impay-font-semibold">Catálogo público</h3>
+          <p className="impay-mt-1 impay-text-sm impay-text-muted">
+            Muestra todos tus productos activos en cualquier página del sitio con este shortcode
+            (acepta <span className="impay-font-mono">columnas="1"</span> a{' '}
+            <span className="impay-font-mono">"4"</span>):
+          </p>
+          <button
+            className="impay-mt-2 impay-rounded-control impay-border impay-border-line impay-bg-canvas impay-px-3 impay-py-2 impay-font-mono impay-text-xs impay-text-ink hover:impay-text-accent"
+            onClick={() => {
+              void navigator.clipboard.writeText('[impay_productos]');
+              toast('Shortcode copiado. Pégalo en la página donde quieras el catálogo.');
+            }}
+          >
+            [impay_productos] <Copy size={12} className="impay-ml-1 impay-inline" />
+          </button>
+        </Card>
       )}
 
       <ProductDrawer product={editingProduct} open={editing !== null} onClose={() => setEditing(null)} />

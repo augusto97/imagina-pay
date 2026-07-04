@@ -6,9 +6,32 @@
 
 ## Estado actual
 
-- **Fase actual:** Fase 7 — Pulido → **COMPLETADA ✅** (v1 lista salvo QA en sandbox con credenciales reales)
+- **Versión publicada:** v1.2.0 (rama `release`, zip instalable)
+- **Fase actual:** v1 completada ✅ + iteración post-lanzamiento por feedback del usuario en sitio real
 - **Siguiente paso:** QA end-to-end en sandbox (checklist en README.md, requiere credenciales de MP/PayPal) → producción. Fase 8 (Wompi + BillingEngine) queda para v2 cuando se decida.
 - **Gates de calidad:** PHPStan level 8 en verde · PHPUnit 157 tests / 501 aserciones en verde · PHPCS en verde · Frontend: tsc + Vite en verde · Checkout ~66KB gz JS+CSS (presupuesto <90KB cumplido)
+
+---
+
+## Sesión 2026-07-04 — v1.2.0: producto completo + catálogo público
+
+Feedback del usuario: "la información y opciones del producto son casi nulas… tampoco está el archivo donde se ven todos los productos".
+
+### Tareas completadas
+
+1. **Formulario de producto completo** (`ProductDrawer.tsx`): el backend ya aceptaba `description`, `features` e `image_url` desde Fase 1, pero el formulario del admin nunca los expuso. Ahora: descripción multilínea (textarea), características una por línea (textarea → array en el payload), URL de imagen con vista previa en vivo. Nueva primitiva `Textarea` en `shared/ui/primitives.tsx`.
+2. **Catálogo público `[impay_productos]`** (`Shortcodes::renderCatalog`): grid responsive de productos activos con imagen, descripción, hasta 4 características con ✓, precio "Desde $X / mes" (menor precio activo) y botón "Comprar ahora" → `/pagar/{slug}`. Atributo `columnas="1..4"` (default 3). Renderizado 100 % en PHP con estilos inline: **cero assets extra**, insertable en cualquier página o builder (respeta principio 1 del spec). Productos sin precio activo se omiten.
+3. Imagen del producto visible en: card del admin (Productos), columna resumen del checkout.
+4. Card "Catálogo público" al pie de Productos con el shortcode copiable; paso 3 del onboarding del Dashboard y README actualizados.
+5. Versión **1.2.0** (header + `IMPAY_VERSION`), zip regenerado en rama `release`.
+
+### Decisiones tomadas
+
+| # | Decisión | Razón |
+|---|---|---|
+| 58 | El catálogo es un shortcode server-rendered con estilos inline, no una SPA ni assets encolados | Presupuesto de performance (sección 1): 0 assets en páginas que no son del plugin; el catálogo puede insertarse en cualquier página del sitio |
+| 59 | Imagen del producto por URL (media library u otra), sin uploader propio | Lo más simple que cumple; WP ya tiene su biblioteca de medios y el campo acepta cualquier URL |
+| 60 | Precio del catálogo = menor precio activo con prefijo "Desde" si hay varios | Un producto puede tener COP y USD / mensual y anual; el card muestra uno solo sin ambigüedad |
 
 ---
 

@@ -92,6 +92,13 @@ export function CheckoutPage() {
       <div className="impay-grid impay-grid-cols-2 impay-gap-10 max-md:impay-grid-cols-1">
         {/* Resumen del producto */}
         <div>
+          {product.image_url && (
+            <img
+              src={product.image_url}
+              alt={product.name}
+              className="impay-mb-6 impay-h-44 impay-w-full impay-rounded-card impay-border impay-border-line impay-object-cover"
+            />
+          )}
           <h1 className="impay-text-2xl impay-font-semibold impay-tracking-tight">{product.name}</h1>
           {product.description && <p className="impay-mt-2 impay-text-sm impay-text-muted">{product.description}</p>}
 

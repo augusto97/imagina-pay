@@ -41,7 +41,7 @@ function OnboardingGuide() {
     },
     {
       title: '3. Ponlo a la venta',
-      detail: 'Cada producto activo tiene un link de venta (/pagar/…) que puedes compartir, enlazar desde un botón de tu página, o insertar con el shortcode [impay_boton producto="slug"].',
+      detail: 'Cada producto activo tiene un link de venta (/pagar/…) que puedes compartir, enlazar desde un botón de tu página, o insertar con el shortcode [impay_boton producto="slug"]. Con [impay_productos] muestras el catálogo completo en cualquier página.',
       action: () => go('productos'),
       cta: 'Ver links de venta',
     },
