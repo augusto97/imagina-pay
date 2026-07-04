@@ -68,6 +68,7 @@ final class CheckoutController extends AbstractController
             'tax_id' => ['type' => 'string', 'max' => 40],
             'country' => ['type' => 'string', 'max' => 2],
             'phone' => ['type' => 'string', 'max' => 40],
+            'custom_fields' => ['type' => 'array'],
         ]);
 
         return new \WP_REST_Response($this->checkout->start($input), 200);

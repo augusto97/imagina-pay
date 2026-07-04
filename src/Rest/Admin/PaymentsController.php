@@ -80,6 +80,19 @@ final class PaymentsController extends AbstractController
             $result['items'],
         ));
 
+        // Orders vinculados: aportan las respuestas a campos personalizados.
+        $ordersById = [];
+
+        foreach ($result['items'] as $payment) {
+            if ($payment->orderId !== null && !isset($ordersById[$payment->orderId])) {
+                $order = $this->orders->find($payment->orderId);
+
+                if ($order !== null) {
+                    $ordersById[$payment->orderId] = $order;
+                }
+            }
+        }
+
         $sums = [];
 
         foreach ($result['sums'] as $currency => $amount) {
@@ -92,7 +105,11 @@ final class PaymentsController extends AbstractController
 
         return [
             'items' => array_map(
-                static fn (Payment $p): array => Presenter::payment($p, $customersById[$p->customerId] ?? null),
+                static fn (Payment $p): array => Presenter::payment(
+                    $p,
+                    $customersById[$p->customerId] ?? null,
+                    $p->orderId !== null ? ($ordersById[$p->orderId] ?? null) : null,
+                ),
                 $result['items'],
             ),
             'total' => $result['total'],

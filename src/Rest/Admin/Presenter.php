@@ -37,6 +37,7 @@ final class Presenter
             'image_url' => $product->imageUrl,
             'status' => $product->status->value,
             'provisioning' => $product->provisioning,
+            'custom_fields' => $product->customFields,
             'prices' => array_map(static fn (Price $price): array => self::price($price), $prices),
             'created_at' => $product->createdAt->format(self::DATE),
         ];
@@ -107,8 +108,11 @@ final class Presenter
      */
     public static function order(Order $order, ?Customer $customer = null, ?Product $product = null): array
     {
+        $customFields = $order->meta['custom_fields'] ?? null;
+
         return [
             'uuid' => $order->uuid,
+            'custom_fields' => is_array($customFields) ? array_values(array_filter($customFields, 'is_array')) : null,
             'kind' => $order->kind->value,
             'status' => $order->status->value,
             'currency' => $order->currency,
@@ -125,10 +129,13 @@ final class Presenter
     /**
      * @return array<string, mixed>
      */
-    public static function payment(Payment $payment, ?Customer $customer = null): array
+    public static function payment(Payment $payment, ?Customer $customer = null, ?Order $order = null): array
     {
+        $customFields = $order?->meta['custom_fields'] ?? null;
+
         return [
             'uuid' => $payment->uuid,
+            'custom_fields' => is_array($customFields) ? array_values(array_filter($customFields, 'is_array')) : null,
             'gateway' => $payment->gateway,
             'gateway_payment_id' => $payment->gatewayPaymentId,
             'status' => $payment->status->value,

@@ -92,6 +92,7 @@ final class ProvisioningServiceTest extends TestCase
             imageUrl: null,
             status: ProductStatus::Active,
             provisioning: $provisioning,
+            customFields: null,
             createdAt: $this->baseDate(),
             updatedAt: $this->baseDate(),
         );

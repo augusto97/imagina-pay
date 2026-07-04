@@ -80,6 +80,8 @@ final class CheckoutService
             ]);
         }
 
+        $customFields = $this->collectCustomFields($product, $input['custom_fields'] ?? null);
+
         $customer = $this->upsertCustomer($input);
         $now = $this->clock->now();
         $orderUuid = Uuid::v4();
@@ -96,6 +98,7 @@ final class CheckoutService
             'amount' => $price->amount,
             'gateway' => $gateway->id(),
             'external_reference' => $orderUuid,
+            'meta' => $customFields === null ? null : (string) wp_json_encode(['custom_fields' => $customFields]),
             'created_at' => $now->format('Y-m-d H:i:s'),
             'updated_at' => $now->format('Y-m-d H:i:s'),
         ]);
@@ -172,6 +175,67 @@ final class CheckoutService
         }
 
         return $session;
+    }
+
+    /**
+     * Valida las respuestas del comprador contra los campos personalizados
+     * del producto y las devuelve listas para guardar en el meta del order:
+     * [{key, label, value}, ...]. null si el producto no define campos.
+     *
+     * @return list<array{key: string, label: string, value: string}>|null
+     */
+    private function collectCustomFields(Product $product, mixed $raw): ?array
+    {
+        $definitions = $product->customFields ?? [];
+
+        if ($definitions === []) {
+            return null;
+        }
+
+        $values = is_array($raw) ? $raw : [];
+        $errors = [];
+        $collected = [];
+
+        foreach ($definitions as $definition) {
+            $key = (string) ($definition['key'] ?? '');
+
+            if ($key === '') {
+                continue;
+            }
+
+            $label = (string) ($definition['label'] ?? $key);
+            $value = $values[$key] ?? '';
+            $value = is_scalar($value) ? trim(wp_strip_all_tags((string) $value)) : '';
+
+            if (($definition['required'] ?? false) === true && $value === '') {
+                $errors['custom_' . $key] = sprintf('El campo "%s" es obligatorio.', $label);
+                continue;
+            }
+
+            if (mb_strlen($value) > 1000) {
+                $errors['custom_' . $key] = sprintf('El campo "%s" es demasiado largo (máx. 1000 caracteres).', $label);
+                continue;
+            }
+
+            if (($definition['type'] ?? '') === 'select' && $value !== '') {
+                $options = array_map('strval', (array) ($definition['options'] ?? []));
+
+                if (!in_array($value, $options, true)) {
+                    $errors['custom_' . $key] = sprintf('El valor de "%s" no es una opción válida.', $label);
+                    continue;
+                }
+            }
+
+            if ($value !== '') {
+                $collected[] = ['key' => $key, 'label' => $label, 'value' => $value];
+            }
+        }
+
+        if ($errors !== []) {
+            throw new ValidationException($errors);
+        }
+
+        return $collected === [] ? null : $collected;
     }
 
     /**

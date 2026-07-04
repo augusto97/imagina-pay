@@ -82,6 +82,7 @@ class ProductRepository extends AbstractRepository
     private function mapRow(array $row): Product
     {
         $features = $this->decodeJson($row['features'] ?? null);
+        $customFields = $this->decodeJson($row['custom_fields'] ?? null);
 
         return new Product(
             (int) $row['id'],
@@ -94,6 +95,7 @@ class ProductRepository extends AbstractRepository
             $this->toNullableString($row['image_url'] ?? null),
             ProductStatus::from((string) $row['status']),
             $this->decodeJson($row['provisioning'] ?? null),
+            $customFields === null ? null : array_values(array_filter($customFields, 'is_array')),
             $this->requireDate($row['created_at'] ?? null),
             $this->requireDate($row['updated_at'] ?? null),
         );

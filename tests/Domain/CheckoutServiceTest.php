@@ -292,6 +292,74 @@ final class CheckoutServiceTest extends TestCase
         $this->service->start($this->input());
     }
 
+    public function testCustomFieldAnswersAreStoredInOrderMeta(): void
+    {
+        $this->expectProductAndPrice(
+            $this->makeProduct(ProductType::OneTime, customFields: [
+                ['key' => 'dominio', 'label' => 'Dominio de tu sitio', 'type' => 'text', 'required' => true],
+                ['key' => 'notas', 'label' => 'Notas', 'type' => 'textarea', 'required' => false],
+            ]),
+            $this->makePrice(PriceInterval::OneTime),
+        );
+        $this->expectExistingCustomer();
+
+        $gateway = $this->registerGateway();
+
+        $this->orders->shouldReceive('insert')->once()->with(Mockery::on(
+            static function (array $data): bool {
+                $meta = json_decode((string) $data['meta'], true);
+
+                return is_array($meta)
+                    && ($meta['custom_fields'][0]['key'] ?? '') === 'dominio'
+                    && ($meta['custom_fields'][0]['value'] ?? '') === 'misitio.com'
+                    && count($meta['custom_fields']) === 1; // el campo opcional vacío no se guarda
+            },
+        ))->andReturn(9);
+        $this->orders->shouldReceive('find')->andReturn($this->makeOrder());
+        $this->orders->shouldReceive('setGatewayRef');
+        $gateway->shouldReceive('createOneTimeCheckout')->andReturn(new CheckoutSession('https://mp.test/init'));
+
+        $input = $this->input();
+        $input['custom_fields'] = ['dominio' => ' misitio.com ', 'notas' => ''];
+
+        $result = $this->service->start($input);
+
+        $this->assertArrayHasKey('redirect_url', $result);
+    }
+
+    public function testMissingRequiredCustomFieldIsRejected(): void
+    {
+        $this->expectProductAndPrice(
+            $this->makeProduct(ProductType::OneTime, customFields: [
+                ['key' => 'dominio', 'label' => 'Dominio', 'type' => 'text', 'required' => true],
+            ]),
+            $this->makePrice(PriceInterval::OneTime),
+        );
+        $this->registerGateway();
+
+        $this->orders->shouldNotReceive('insert');
+
+        $this->expectException(ValidationException::class);
+        $this->service->start($this->input());
+    }
+
+    public function testSelectCustomFieldRejectsUnknownOption(): void
+    {
+        $this->expectProductAndPrice(
+            $this->makeProduct(ProductType::OneTime, customFields: [
+                ['key' => 'plan', 'label' => 'Plan', 'type' => 'select', 'required' => true, 'options' => ['Básico', 'Premium']],
+            ]),
+            $this->makePrice(PriceInterval::OneTime),
+        );
+        $this->registerGateway();
+
+        $input = $this->input();
+        $input['custom_fields'] = ['plan' => 'Inexistente'];
+
+        $this->expectException(ValidationException::class);
+        $this->service->start($input);
+    }
+
     public function testCreatesCustomerWhenEmailIsNew(): void
     {
         $this->expectProductAndPrice(

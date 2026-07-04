@@ -15,7 +15,7 @@ namespace ImaginaPay\Core;
  */
 final class Activator
 {
-    private const DB_VERSION = '1.0.0';
+    private const DB_VERSION = '1.1.0';
 
     public static function activate(): void
     {
@@ -28,6 +28,22 @@ final class Activator
         // La regla /checkout/{slug} debe existir antes del flush.
         \ImaginaPay\Frontend\Shortcodes::registerRewrite();
         flush_rewrite_rules();
+    }
+
+    /**
+     * Actualización de esquema tras actualizar el plugin por zip (el hook de
+     * activación no se dispara en updates). Cuesta un get_option autoloaded;
+     * dbDelta solo corre cuando cambió DB_VERSION.
+     */
+    public static function maybeUpgrade(): void
+    {
+        if (get_option('impay_db_version') === self::DB_VERSION) {
+            return;
+        }
+
+        self::createTables();
+        self::registerRolesAndCaps();
+        update_option('impay_db_version', self::DB_VERSION);
     }
 
     private static function createTables(): void
@@ -52,6 +68,7 @@ final class Activator
             image_url varchar(500) NULL,
             status enum('active','archived','draft') NOT NULL DEFAULT 'draft',
             provisioning longtext NULL,
+            custom_fields longtext NULL,
             created_at datetime NOT NULL,
             updated_at datetime NOT NULL,
             PRIMARY KEY  (id),

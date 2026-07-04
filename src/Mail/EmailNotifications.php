@@ -307,16 +307,39 @@ class EmailNotifications
         $product = $this->products->find($order->productId);
         $amount = Money::of($order->amount, $order->currency)->format();
 
+        $paragraphs = [sprintf(
+            '%s (%s) pagó <strong>%s</strong> por %s.',
+            esc_html($customer?->fullName ?? 'Cliente'),
+            esc_html($customer?->email ?? ''),
+            esc_html($amount),
+            esc_html($product?->name ?? ''),
+        )];
+
+        // Respuestas a los campos personalizados del checkout, si el producto los define.
+        $customFields = $order->meta['custom_fields'] ?? null;
+
+        if (is_array($customFields) && $customFields !== []) {
+            $lines = [];
+
+            foreach ($customFields as $field) {
+                if (is_array($field) && isset($field['label'], $field['value'])) {
+                    $lines[] = sprintf(
+                        '<strong>%s:</strong> %s',
+                        esc_html((string) $field['label']),
+                        esc_html((string) $field['value']),
+                    );
+                }
+            }
+
+            if ($lines !== []) {
+                $paragraphs[] = 'Información adicional del comprador:<br>' . implode('<br>', $lines);
+            }
+        }
+
         $this->mailer->sendToAdmin(
             sprintf('[Imagina Pay] Venta nueva: %s', $product?->name ?? 'producto'),
             'Venta nueva',
-            [sprintf(
-                '%s (%s) pagó <strong>%s</strong> por %s.',
-                esc_html($customer?->fullName ?? 'Cliente'),
-                esc_html($customer?->email ?? ''),
-                esc_html($amount),
-                esc_html($product?->name ?? ''),
-            )],
+            $paragraphs,
         );
     }
 
