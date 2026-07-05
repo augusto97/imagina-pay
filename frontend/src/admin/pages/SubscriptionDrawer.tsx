@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Copy } from 'lucide-react';
 import { useState } from 'react';
 import { api, ApiError } from '@shared/api';
-import { date, dateTime } from '@shared/format';
+import { date, dateTime, gatewayLabel } from '@shared/format';
 import type { Payment, Subscription } from '@shared/types';
 import { Badge, Button, Spinner } from '@shared/ui/primitives';
 import { Drawer } from '@shared/ui/layout';
@@ -64,7 +64,7 @@ export function SubscriptionDrawer({ uuid, onClose }: { uuid: string | null; onC
           </div>
 
           <div className="impay-divide-y impay-divide-line impay-rounded-card impay-border impay-border-line impay-px-4">
-            <Row label="Pasarela" value={isMp ? 'Mercado Pago' : 'PayPal'} />
+            <Row label="Pasarela" value={gatewayLabel(subscription.gateway)} />
             <Row label="Ref. pasarela" value={subscription.gateway_sub_id ?? 'Suscripción lógica'} />
             <Row
               label="Periodo actual"

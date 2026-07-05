@@ -15,7 +15,7 @@ namespace ImaginaPay\Core;
  */
 final class Activator
 {
-    private const DB_VERSION = '1.1.0';
+    private const DB_VERSION = '1.2.0';
 
     public static function activate(): void
     {
@@ -204,6 +204,26 @@ final class Activator
             PRIMARY KEY  (id),
             UNIQUE KEY idx_uuid (uuid),
             KEY idx_subscription (subscription_id)
+        ) {$charsetCollate};";
+
+        // Medios de pago tokenizados (gateways modo Tokenized: Wompi).
+        $schemas[] = "CREATE TABLE {$prefix}payment_sources (
+            id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+            uuid char(36) NOT NULL,
+            customer_id bigint(20) unsigned NOT NULL,
+            gateway varchar(30) NOT NULL,
+            gateway_source_id varchar(120) NOT NULL,
+            type varchar(20) NOT NULL,
+            brand varchar(40) NULL,
+            last_four varchar(4) NULL,
+            status varchar(30) NOT NULL DEFAULT 'available',
+            expires_at datetime NULL,
+            created_at datetime NOT NULL,
+            updated_at datetime NOT NULL,
+            PRIMARY KEY  (id),
+            UNIQUE KEY idx_uuid (uuid),
+            UNIQUE KEY idx_gw_source (gateway, gateway_source_id),
+            KEY idx_customer (customer_id)
         ) {$charsetCollate};";
 
         $schemas[] = "CREATE TABLE {$prefix}webhook_events (

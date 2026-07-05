@@ -83,6 +83,17 @@ webhooks.
 | Mercado Pago (panel → Webhooks) | `https://tu-sitio.com/wp-json/impay/v1/webhooks/mercadopago` | `payment`, `subscription_preapproval`, `subscription_authorized_payment` |
 | PayPal (Developer Dashboard → Webhooks) | `https://tu-sitio.com/wp-json/impay/v1/webhooks/paypal` | `CHECKOUT.ORDER.APPROVED`, `PAYMENT.CAPTURE.COMPLETED`, `PAYMENT.CAPTURE.REFUNDED`, `PAYMENT.SALE.COMPLETED`, `BILLING.SUBSCRIPTION.*` |
 | ePayco (URL de confirmación) | `https://tu-sitio.com/wp-json/impay/v1/webhooks/epayco` | La URL de confirmación se envía por transacción; verifica que el panel no la sobreescriba |
+| Wompi (panel → Programadores → Eventos) | `https://tu-sitio.com/wp-json/impay/v1/webhooks/wompi` | Eventos de transacciones (`transaction.updated`) |
+
+**Wompi (Bancolombia)** procesa pagos únicos (tarjeta, PSE, Nequi vía Web
+Checkout) **y suscripciones recurrentes con tarjeta o Nequi**: el cliente
+tokeniza su medio de pago en el checkout (los datos van directo a Wompi,
+nunca a tu servidor) y el plugin dispara el cobro de cada periodo con el
+job diario `impay_billing_run` (reintentos a las 24 h y 72 h; al tercer
+fallo la suscripción se cancela y corre el dunning normal). Credenciales
+en Ajustes → Wompi: llave pública, llave privada, secreto de eventos y
+secreto de integridad (panel de Wompi → Programadores). El toggle sandbox
+usa `sandbox.wompi.co` con las llaves `pub_test_`/`prv_test_`.
 
 **ePayco** está habilitado **solo para pagos únicos en COP** (tarjeta, PSE,
 efectivo) — decisión de negocio: su producto de suscripciones tiene costo

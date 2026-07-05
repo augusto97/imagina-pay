@@ -6,6 +6,7 @@ namespace ImaginaPay\Jobs;
 
 use ImaginaPay\Core\Container;
 use ImaginaPay\Domain\Entities\Order;
+use ImaginaPay\Domain\Services\BillingEngine;
 use ImaginaPay\Domain\Services\DunningService;
 use ImaginaPay\Domain\Services\MaintenanceService;
 use ImaginaPay\Domain\Services\ReconciliationService;
@@ -26,6 +27,7 @@ final class Scheduler
      */
     private const RECURRING = [
         'impay_reconcile' => ['03:00', DAY_IN_SECONDS],
+        'impay_billing_run' => ['05:00', DAY_IN_SECONDS],
         'impay_expire_stale' => ['04:00', DAY_IN_SECONDS],
         'impay_renewal_reminders' => ['08:00', DAY_IN_SECONDS],
         'impay_dunning_notices' => ['09:00', DAY_IN_SECONDS],
@@ -44,6 +46,12 @@ final class Scheduler
 
         add_action('impay_reconcile', function (): void {
             $this->container->get(ReconciliationService::class)->reconcile();
+        });
+
+        // Cobros recurrentes de gateways tokenized (Wompi). Si no hay
+        // ninguno configurado, run() sale de inmediato.
+        add_action('impay_billing_run', function (): void {
+            $this->container->get(BillingEngine::class)->run();
         });
 
         add_action('impay_expire_stale', function (): void {

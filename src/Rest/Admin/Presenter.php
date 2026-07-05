@@ -96,6 +96,9 @@ final class Presenter
             'license_key' => is_string($subscription->meta['license_key'] ?? null)
                 ? $subscription->meta['license_key']
                 : null,
+            'payment_method' => is_array($subscription->meta['payment_method'] ?? null)
+                ? $subscription->meta['payment_method']
+                : null,
             'manual_task_pending' => ($subscription->meta['manual_task']['status'] ?? '') === 'pending',
             'customer' => $customer !== null ? self::customer($customer) : null,
             'product' => $product !== null ? ['uuid' => $product->uuid, 'name' => $product->name, 'type' => $product->type->value] : null,

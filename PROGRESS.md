@@ -6,10 +6,39 @@
 
 ## Estado actual
 
-- **Versión publicada:** v1.4.0 (rama `release`, zip instalable)
+- **Versión publicada:** v1.5.0 (rama `release`, zip instalable)
 - **Fase actual:** v1 completada ✅ + iteración post-lanzamiento por feedback del usuario en sitio real
-- **Siguiente paso:** QA end-to-end en sandbox (checklist en README.md, requiere credenciales de MP/PayPal) → producción. Fase 8 (Wompi + BillingEngine) queda para v2 cuando se decida.
-- **Gates de calidad:** PHPStan level 8 en verde · PHPUnit 157 tests / 501 aserciones en verde · PHPCS en verde · Frontend: tsc + Vite en verde · Checkout ~66KB gz JS+CSS (presupuesto <90KB cumplido)
+- **Fase 8 (Wompi + BillingEngine): COMPLETADA ✅** — las 4 pasarelas integradas (MP, PayPal, ePayco pago único, Wompi tokenized).
+- **Siguiente paso:** QA end-to-end en sandbox de las 4 pasarelas (checklist en README.md; el criterio de la Fase 8 — dos periodos consecutivos cobrados en sandbox Wompi — requiere credenciales reales de prueba) → producción.
+- **Gates de calidad:** PHPStan level 8 en verde · PHPUnit 192 tests / 592 aserciones en verde · PHPCS en verde · Frontend: tsc + Vite en verde · Checkout ~22KB gz JS propio (presupuesto <90KB cumplido)
+
+---
+
+## Sesión 2026-07-05 (continuación 2) — v1.5.0: Wompi + BillingEngine (Fase 8 del spec)
+
+Pedido del usuario: "integra también wompi". Es la Fase 8 completa del roadmap: modo Tokenized real.
+
+### Tareas completadas
+
+1. **Tabla `impay_payment_sources`** (DB_VERSION 1.2.0, migra sola vía maybeUpgrade) + entidad y repositorio. El token real vive en Wompi; localmente solo gateway_source_id + brand/last_four para mostrar.
+2. **`WompiGateway` (modo Tokenized)** con `WompiClient` y `WompiWebhookVerifier`:
+   - Pago único y links de pago: **Web Checkout** (redirect) con firma de integridad SHA-256(referencia+monto+moneda+secreto). `supports('payment_links')` = true → sirve para annual_hybrid y cobros manuales.
+   - Suscripciones: el navegador tokeniza tarjeta o Nequi DIRECTO contra la API de Wompi con la llave pública (`frontend/src/checkout/wompi.tsx`; Nequi hace polling hasta que el cliente aprueba en su app). El token viaja en `meta.pending_token`, el gateway crea la fuente de pago con `acceptance_token`, guarda `impay_payment_sources` + `meta.payment_method` y dispara el primer cobro (referencia = uuid de la suscripción → el webhook la activa y paga el order inicial).
+   - Webhook `/webhooks/wompi`: checksum de eventos verificado con propiedades DINÁMICAS de `signature.properties` + timestamp + secreto (hash_equals); payload firmado confiable (política PayPal). Dedupe por transacción+estado. Resolución de referencia: prefijo renovación → order → suscripción → link.
+3. **`BillingEngine`** + job diario `impay_billing_run` (05:00): cobra suscripciones tokenized con periodo vencido. Reintentos 24h/72h (máx. 3 por periodo) con reclamo del intento en meta ANTES de llamar a la pasarela (un job duplicado jamás cobra dos veces — test lo verifica). Referencia determinista `impay-ren-{uuid}-{periodo}-a{n}`. `cancel_at_period_end` → transición a expired sin cobrar. Los DECLINED entran por webhook a PaymentService (past_due al 1er fallo, cancelación al 3º, dunning normal) — mismos eventos de dominio que MP.
+4. **Ramas por modo**: `SubscriptionService`/`CheckoutService` ya ramificaban por `GatewayMode`; se llenó la rama Tokenized (checkout exige `payment_token` + `payment_method_type` CARD|NEQUI para suscripciones Wompi).
+5. Ajustes → tab Wompi (llave pública, privada/eventos/integridad cifradas, toggle sandbox → sandbox.wompi.co). Portal: la card del servicio muestra el medio de pago (Visa •••• 4242 / Nequi) y "Se renueva el…" para tokenized. Labels de pasarela unificados (`gatewayLabel`).
+6. +17 tests (192 en total, 592 aserciones): checksum de eventos (dinámico, manipulación de monto), URL firmada de Web Checkout, alta tokenizada completa, resolución de referencias, y BillingEngine (cobro, reclamo-antes-de-cobrar, job duplicado, reintento 24h, tope de intentos, expiración por cancel_at_period_end, ignora gateways hosted).
+
+### Decisiones tomadas
+
+| # | Decisión | Razón |
+|---|---|---|
+| 68 | `gateway_sub_id` queda NULL en suscripciones Wompi (la fuente vive en meta + payment_sources) | Wompi no tiene objeto de suscripción; así la reconciliación diaria (que consulta la pasarela) las omite correctamente |
+| 69 | El payload firmado de Wompi se procesa sin re-fetch | El checksum verificado cubre exactamente id/status/amount (política PayPal); la validación de monto de v1.3.1 sigue aplicando |
+| 70 | Reintentos: reclamo del intento en meta antes del POST a Wompi | Idempotencia de salida del spec §7; preferible perder un intento (se reintenta en 24h) a cobrar doble |
+| 71 | 3DS inicial de tarjetas: no implementado; se valida en sandbox | Wompi lo exige según configuración del comercio; si la cuenta lo requiere se añade el flujo de challenge en una iteración |
+| 72 | supports('pause') = false en Wompi | El spec reserva pausa para MP; pausar tokenized es trivial de añadir después si se necesita |
 
 ---
 

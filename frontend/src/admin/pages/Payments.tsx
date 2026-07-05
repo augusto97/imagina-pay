@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Download } from 'lucide-react';
 import { useState } from 'react';
 import { api, boot } from '@shared/api';
-import { dateTime } from '@shared/format';
+import { dateTime, gatewayLabel } from '@shared/format';
 import type { CurrencyAmount, Payment } from '@shared/types';
 import { Badge, Button, Card, EmptyState, Input, Select, Spinner } from '@shared/ui/primitives';
 import { DataTable, Pagination } from '@shared/ui/layout';
@@ -77,6 +77,7 @@ export function PaymentsPage() {
           <option value="mercadopago">Mercado Pago</option>
           <option value="paypal">PayPal</option>
           <option value="epayco">ePayco</option>
+          <option value="wompi">Wompi</option>
         </Select>
         <Input type="date" className="impay-w-40" value={filters.from} onChange={(e) => update({ from: e.target.value })} />
         <span className="impay-text-sm impay-text-muted">a</span>
@@ -114,7 +115,7 @@ export function PaymentsPage() {
                   </td>
                   <td className="impay-px-4 impay-py-3 impay-text-muted">{payment.method ?? '—'}</td>
                   <td className="impay-px-4 impay-py-3 impay-text-muted">
-                    {payment.gateway === 'mercadopago' ? 'Mercado Pago' : payment.gateway === 'epayco' ? 'ePayco' : 'PayPal'}
+                    {gatewayLabel(payment.gateway)}
                   </td>
                   <td className="impay-px-4 impay-py-3">
                     <Badge status={payment.status} label={payment.status} />

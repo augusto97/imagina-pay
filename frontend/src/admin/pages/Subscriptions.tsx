@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Search } from 'lucide-react';
 import { useState } from 'react';
 import { api, boot } from '@shared/api';
-import { date } from '@shared/format';
+import { date, gatewayLabel } from '@shared/format';
 import type { Paginated, Subscription } from '@shared/types';
 import { Badge, Card, EmptyState, Input, Select, Spinner } from '@shared/ui/primitives';
 import { DataTable, Pagination } from '@shared/ui/layout';
@@ -61,7 +61,7 @@ export function SubscriptionsPage() {
           <option value="">Todas las pasarelas</option>
           {boot().gateways.map((gateway) => (
             <option key={gateway} value={gateway}>
-              {gateway === 'mercadopago' ? 'Mercado Pago' : 'PayPal'}
+              {gatewayLabel(gateway)}
             </option>
           ))}
         </Select>
@@ -93,7 +93,7 @@ export function SubscriptionsPage() {
                     )}
                   </td>
                   <td className="impay-px-4 impay-py-3 impay-text-muted">
-                    {subscription.gateway === 'mercadopago' ? 'Mercado Pago' : 'PayPal'}
+                    {gatewayLabel(subscription.gateway)}
                     {subscription.gateway_sub_id === null && ' · lógica'}
                   </td>
                   <td className="impay-tabular impay-px-4 impay-py-3">

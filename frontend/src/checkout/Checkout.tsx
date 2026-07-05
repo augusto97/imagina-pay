@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { api, ApiError, boot } from '@shared/api';
 import { intervalLabels } from '@shared/format';
 import type { Price, Product } from '@shared/types';
+import { emptyWompiForm, tokenizeWompi, WompiFields, type WompiFormState } from './wompi';
 
 const schema = z.object({
   full_name: z.string().min(3, 'Ingresa tu nombre completo.'),
@@ -74,6 +75,7 @@ const GATEWAY_INFO: Record<string, { label: string; usd: boolean }> = {
   mercadopago: { label: 'Mercado Pago', usd: false },
   paypal: { label: 'PayPal', usd: true },
   epayco: { label: 'ePayco', usd: false },
+  wompi: { label: 'Wompi', usd: false },
 };
 
 export function CheckoutPage() {
@@ -82,6 +84,8 @@ export function CheckoutPage() {
   const [gateway, setGateway] = useState('mercadopago');
   const [values, setValues] = useState<FormValues>(initialValues);
   const [custom, setCustom] = useState<Record<string, string>>({});
+  const [wompiForm, setWompiForm] = useState<WompiFormState>(emptyWompiForm);
+  const [wompiStatus, setWompiStatus] = useState('');
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
   const [honeypot, setHoneypot] = useState('');
@@ -99,6 +103,9 @@ export function CheckoutPage() {
   const gatewayOptions = (bootGateways.length > 0 ? bootGateways : ['mercadopago', 'paypal']).filter(
     (id) => id in GATEWAY_INFO && (id !== 'epayco' || product.type === 'one_time'),
   );
+
+  const wompiConfig = boot().wompi;
+  const wompiTokenizes = gateway === 'wompi' && isRecurring;
 
   const customFields = product.custom_fields ?? [];
 
@@ -126,6 +133,28 @@ export function CheckoutPage() {
     setErrors({});
     setSubmitting(true);
 
+    // Suscripción con Wompi: tokenizar el medio de pago en el navegador
+    // (directo a Wompi con la llave pública) antes de crear la suscripción.
+    let wompiToken: { token: string; type: 'CARD' | 'NEQUI' } | null = null;
+
+    if (wompiTokenizes && wompiConfig) {
+      if (!wompiForm.acceptance) {
+        setSubmitting(false);
+        setErrors({ form: 'Debes aceptar los términos de Wompi para autorizar los cobros recurrentes.' });
+        return;
+      }
+
+      try {
+        wompiToken = await tokenizeWompi(wompiConfig, wompiForm, setWompiStatus);
+        setWompiStatus('');
+      } catch (error) {
+        setSubmitting(false);
+        setWompiStatus('');
+        setErrors({ form: error instanceof Error ? error.message : 'No fue posible validar tu medio de pago.' });
+        return;
+      }
+    }
+
     try {
       const result = await api.post<{ redirect_url: string; widget?: EpaycoWidget }>('checkout', {
         product: product.uuid,
@@ -133,6 +162,7 @@ export function CheckoutPage() {
         gateway,
         website: honeypot,
         ...(customFields.length > 0 ? { custom_fields: custom } : {}),
+        ...(wompiToken ? { payment_token: wompiToken.token, payment_method_type: wompiToken.type } : {}),
         ...parsed.data,
       });
 
@@ -320,7 +350,11 @@ export function CheckoutPage() {
                         : 'COP · tarjeta, PSE, Nequi'
                       : option === 'epayco'
                         ? 'COP · tarjeta, PSE, efectivo'
-                        : 'USD · internacional';
+                        : option === 'wompi'
+                          ? isRecurring
+                            ? 'COP · tarjeta o Nequi recurrente'
+                            : 'COP · tarjeta, PSE, Nequi'
+                          : 'USD · internacional';
 
                   return (
                     <button
@@ -347,6 +381,11 @@ export function CheckoutPage() {
                 <p className="impay-mt-2 impay-text-xs impay-text-muted">
                   Las suscripciones con Mercado Pago se pagan con tarjeta de crédito o débito.
                 </p>
+              )}
+              {wompiTokenizes && (
+                <div className="impay-mt-3">
+                  <WompiFields value={wompiForm} onChange={setWompiForm} inputClass={inputClass} status={wompiStatus} />
+                </div>
               )}
             </div>
 

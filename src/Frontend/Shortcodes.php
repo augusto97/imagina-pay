@@ -9,6 +9,7 @@ use ImaginaPay\Domain\Entities\Product;
 use ImaginaPay\Domain\Repositories\PriceRepository;
 use ImaginaPay\Domain\Repositories\ProductRepository;
 use ImaginaPay\Gateways\Epayco\EpaycoGateway;
+use ImaginaPay\Gateways\Wompi\WompiGateway;
 use ImaginaPay\Rest\Admin\Presenter;
 use ImaginaPay\Support\Money;
 
@@ -38,6 +39,7 @@ final class Shortcodes
         private readonly ProductRepository $products,
         private readonly PriceRepository $prices,
         private readonly EpaycoGateway $epayco,
+        private readonly WompiGateway $wompi,
     ) {
     }
 
@@ -250,11 +252,16 @@ final class Shortcodes
             static fn ($price): bool => $price->status->value === 'active',
         ));
 
-        // ePayco solo aparece si está configurado (MP/PayPal son la base).
+        // ePayco y Wompi solo aparecen si están configurados (MP/PayPal
+        // son la base).
         $gateways = ['mercadopago', 'paypal'];
 
         if ($this->epayco->isConfigured()) {
             $gateways[] = 'epayco';
+        }
+
+        if ($this->wompi->isConfigured()) {
+            $gateways[] = 'wompi';
         }
 
         $boot = [
@@ -263,6 +270,11 @@ final class Shortcodes
             'gateways' => $gateways,
             'product' => Presenter::product($product, $activePrices),
         ];
+
+        // La tokenización de Wompi corre en el navegador con la llave pública.
+        if ($this->wompi->isConfigured()) {
+            $boot['wompi'] = $this->wompi->publicConfig();
+        }
 
         ViteAssets::enqueue('checkout', 'src/checkout/main.tsx');
 

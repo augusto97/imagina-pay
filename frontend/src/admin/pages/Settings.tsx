@@ -11,6 +11,7 @@ const TABS = [
   { key: 'mercadopago', label: 'Mercado Pago' },
   { key: 'paypal', label: 'PayPal' },
   { key: 'epayco', label: 'ePayco' },
+  { key: 'wompi', label: 'Wompi' },
   { key: 'emails', label: 'Emails' },
   { key: 'avanzado', label: 'Avanzado' },
 ] as const;
@@ -36,6 +37,12 @@ const FIELDS: Record<TabKey, { key: string; label: string; secret?: boolean; hin
     { key: 'epayco_cust_id', label: 'P_CUST_ID_CLIENTE (ID de cliente)' },
     { key: 'epayco_public_key', label: 'PUBLIC_KEY' },
     { key: 'epayco_p_key', label: 'P_KEY', secret: true, hint: 'Se usa para verificar la firma de la confirmación.' },
+  ],
+  wompi: [
+    { key: 'wompi_public_key', label: 'Llave pública' },
+    { key: 'wompi_private_key', label: 'Llave privada', secret: true },
+    { key: 'wompi_events_secret', label: 'Secreto de eventos', secret: true, hint: 'Verifica el checksum de los webhooks.' },
+    { key: 'wompi_integrity_secret', label: 'Secreto de integridad', secret: true, hint: 'Firma las URLs del Web Checkout.' },
   ],
   emails: [
     { key: 'email_from_name', label: 'Nombre del remitente' },
@@ -104,7 +111,7 @@ export function SettingsPage() {
       </div>
 
       <Card className="impay-space-y-4 impay-p-6">
-        {(tab === 'mercadopago' || tab === 'paypal' || tab === 'epayco') && (
+        {(tab === 'mercadopago' || tab === 'paypal' || tab === 'epayco' || tab === 'wompi') && (
           <div className="impay-rounded-control impay-bg-accent-soft impay-px-4 impay-py-3 impay-text-sm">
             <p className="impay-font-medium impay-text-accent">
               {tab === 'epayco' ? 'URL de confirmación para configurar en el panel:' : 'URL de webhooks para registrar en el panel:'}
@@ -145,6 +152,17 @@ export function SettingsPage() {
           </Field>
         ))}
 
+        {tab === 'wompi' && (
+          <label className="impay-flex impay-items-center impay-gap-2 impay-text-sm">
+            <input
+              type="checkbox"
+              checked={form.wompi_sandbox === undefined ? true : Boolean(form.wompi_sandbox)}
+              onChange={(e) => setForm({ ...form, wompi_sandbox: e.target.checked })}
+            />
+            Modo sandbox (llaves pub_test_/prv_test_)
+          </label>
+        )}
+
         {tab === 'epayco' && (
           <label className="impay-flex impay-items-center impay-gap-2 impay-text-sm">
             <input
@@ -160,6 +178,14 @@ export function SettingsPage() {
           <p className="impay-text-xs impay-text-muted">
             Mercado Pago cobra en COP (cuenta Colombia). Las suscripciones solo aceptan tarjeta; PSE y Nequi
             están disponibles para pagos únicos.
+          </p>
+        )}
+        {tab === 'wompi' && (
+          <p className="impay-text-xs impay-text-muted">
+            Wompi (Bancolombia) procesa pagos únicos (tarjeta, PSE, Nequi) y suscripciones recurrentes con
+            tarjeta o Nequi — el cobro de cada periodo lo dispara el plugin (job diario). Registra la URL de
+            eventos en el panel de Wompi (Programadores → Eventos). Con las 4 credenciales llenas aparece
+            automáticamente en el checkout.
           </p>
         )}
         {tab === 'epayco' && (

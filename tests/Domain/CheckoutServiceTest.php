@@ -21,6 +21,7 @@ use ImaginaPay\Exceptions\NotFoundException;
 use ImaginaPay\Exceptions\ValidationException;
 use ImaginaPay\Gateways\CheckoutSession;
 use ImaginaPay\Gateways\GatewayInterface;
+use ImaginaPay\Gateways\GatewayMode;
 use ImaginaPay\Gateways\GatewayRegistry;
 use ImaginaPay\Support\NullLogger;
 use ImaginaPay\Support\Uuid;
@@ -109,6 +110,7 @@ final class CheckoutServiceTest extends TestCase
         /** @var GatewayInterface&MockInterface $gateway */
         $gateway = Mockery::mock(GatewayInterface::class);
         $gateway->shouldReceive('id')->andReturn('mercadopago');
+        $gateway->shouldReceive('mode')->andReturn(GatewayMode::HostedSubscription)->byDefault();
         $gateway->shouldReceive('supports')->andReturnUsing(
             static fn (string $feature): bool => $map[$feature] ?? false,
         );

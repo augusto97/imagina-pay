@@ -9,11 +9,13 @@ use ImaginaPay\Domain\Repositories\LogRepository;
 use ImaginaPay\Domain\Repositories\OrderRepository;
 use ImaginaPay\Domain\Repositories\PaymentLinkRepository;
 use ImaginaPay\Domain\Repositories\PaymentRepository;
+use ImaginaPay\Domain\Repositories\PaymentSourceRepository;
 use ImaginaPay\Domain\Repositories\PriceRepository;
 use ImaginaPay\Domain\Repositories\ProductRepository;
 use ImaginaPay\Domain\Repositories\SubscriptionRepository;
 use ImaginaPay\Domain\Repositories\WebhookEventRepository;
 use ImaginaPay\Admin\AdminPage;
+use ImaginaPay\Domain\Services\BillingEngine;
 use ImaginaPay\Domain\Services\CheckoutService;
 use ImaginaPay\Domain\Services\CustomerAccountService;
 use ImaginaPay\Domain\Services\DunningService;
@@ -34,6 +36,9 @@ use ImaginaPay\Frontend\Shortcodes;
 use ImaginaPay\Gateways\Epayco\EpaycoGateway;
 use ImaginaPay\Gateways\Epayco\EpaycoWebhookVerifier;
 use ImaginaPay\Gateways\PayPal\PayPalClient;
+use ImaginaPay\Gateways\Wompi\WompiClient;
+use ImaginaPay\Gateways\Wompi\WompiGateway;
+use ImaginaPay\Gateways\Wompi\WompiWebhookVerifier;
 use ImaginaPay\Gateways\PayPal\PayPalGateway;
 use ImaginaPay\Gateways\PayPal\PayPalWebhookHandler;
 use ImaginaPay\Domain\Services\ProvisioningService;
@@ -166,6 +171,7 @@ final class Plugin
         $c->singleton(OrderRepository::class, static fn (Container $c): OrderRepository => new OrderRepository($c->get(\wpdb::class)));
         $c->singleton(SubscriptionRepository::class, static fn (Container $c): SubscriptionRepository => new SubscriptionRepository($c->get(\wpdb::class)));
         $c->singleton(PaymentRepository::class, static fn (Container $c): PaymentRepository => new PaymentRepository($c->get(\wpdb::class)));
+        $c->singleton(PaymentSourceRepository::class, static fn (Container $c): PaymentSourceRepository => new PaymentSourceRepository($c->get(\wpdb::class)));
         $c->singleton(PaymentLinkRepository::class, static fn (Container $c): PaymentLinkRepository => new PaymentLinkRepository($c->get(\wpdb::class)));
         $c->singleton(WebhookEventRepository::class, static fn (Container $c): WebhookEventRepository => new WebhookEventRepository($c->get(\wpdb::class)));
 
@@ -261,15 +267,47 @@ final class Plugin
             $c->get(Logger::class),
         ));
 
+        // Wompi (modo Tokenized: el BillingEngine dispara los cobros).
+        $c->singleton(WompiClient::class, static fn (Container $c): WompiClient => new WompiClient(
+            $c->get(HttpClient::class),
+            $c->get(Settings::class),
+        ));
+
+        $c->singleton(WompiWebhookVerifier::class, static fn (): WompiWebhookVerifier => new WompiWebhookVerifier());
+
+        $c->singleton(WompiGateway::class, static fn (Container $c): WompiGateway => new WompiGateway(
+            $c->get(WompiClient::class),
+            $c->get(WompiWebhookVerifier::class),
+            $c->get(CustomerRepository::class),
+            $c->get(OrderRepository::class),
+            $c->get(SubscriptionRepository::class),
+            $c->get(PaymentSourceRepository::class),
+            $c->get(PaymentLinkRepository::class),
+            $c->get(PaymentService::class),
+            $c->get(RenewalService::class),
+            $c->get(Clock::class),
+            $c->get(Logger::class),
+        ));
+
         // Registro de pasarelas.
         $c->singleton(GatewayRegistry::class, static function (Container $c): GatewayRegistry {
             $registry = new GatewayRegistry();
             $registry->register($c->get(MercadoPagoGateway::class));
             $registry->register($c->get(PayPalGateway::class));
             $registry->register($c->get(EpaycoGateway::class));
+            $registry->register($c->get(WompiGateway::class));
 
             return $registry;
         });
+
+        $c->singleton(BillingEngine::class, static fn (Container $c): BillingEngine => new BillingEngine(
+            $c->get(SubscriptionRepository::class),
+            $c->get(PriceRepository::class),
+            $c->get(GatewayRegistry::class),
+            $c->get(SubscriptionStateMachine::class),
+            $c->get(Clock::class),
+            $c->get(Logger::class),
+        ));
 
         $c->singleton(PaymentService::class, static fn (Container $c): PaymentService => new PaymentService(
             $c->get(PaymentRepository::class),
@@ -500,6 +538,7 @@ final class Plugin
             $c->get(ProductRepository::class),
             $c->get(PriceRepository::class),
             $c->get(EpaycoGateway::class),
+            $c->get(WompiGateway::class),
         ));
 
         $c->singleton(PortalController::class, static fn (Container $c): PortalController => new PortalController(
