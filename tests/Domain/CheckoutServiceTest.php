@@ -103,7 +103,7 @@ final class CheckoutServiceTest extends TestCase
      */
     private function registerGateway(array $features = []): GatewayInterface
     {
-        $defaults = ['currency_COP' => true, 'one_time' => true, 'recurring' => true];
+        $defaults = ['currency_COP' => true, 'one_time' => true, 'recurring' => true, 'payment_links' => true];
         $map = array_merge($defaults, $features);
 
         /** @var GatewayInterface&MockInterface $gateway */
@@ -269,6 +269,19 @@ final class CheckoutServiceTest extends TestCase
             $this->makePrice(PriceInterval::Month),
         );
         $this->registerGateway(['recurring' => false]);
+
+        $this->expectException(ValidationException::class);
+        $this->service->start($this->input());
+    }
+
+    public function testRejectsAnnualHybridOnGatewayWithoutPaymentLinks(): void
+    {
+        $this->expectProductAndPrice(
+            $this->makeProduct(ProductType::AnnualHybrid),
+            $this->makePrice(PriceInterval::Year),
+        );
+        // ePayco: pago único sí, links de renovación no.
+        $this->registerGateway(['payment_links' => false]);
 
         $this->expectException(ValidationException::class);
         $this->service->start($this->input());

@@ -30,6 +30,52 @@ interface CheckoutBoot {
   product?: Product;
 }
 
+interface EpaycoWidget {
+  provider: string;
+  key: string;
+  test: boolean;
+  data: Record<string, string>;
+}
+
+interface EpaycoCheckoutHandler {
+  open: (data: Record<string, string>) => void;
+}
+
+interface EpaycoGlobal {
+  checkout: { configure: (options: { key: string; test: boolean }) => EpaycoCheckoutHandler };
+}
+
+/** Carga checkout.js de ePayco (una sola vez) y abre su widget Onpage. */
+function openEpaycoWidget(widget: EpaycoWidget, onError: () => void) {
+  const launch = () => {
+    const epayco = (window as unknown as { ePayco?: EpaycoGlobal }).ePayco;
+
+    if (!epayco) {
+      onError();
+      return;
+    }
+
+    epayco.checkout.configure({ key: widget.key, test: widget.test }).open(widget.data);
+  };
+
+  if ((window as unknown as { ePayco?: EpaycoGlobal }).ePayco) {
+    launch();
+    return;
+  }
+
+  const script = document.createElement('script');
+  script.src = 'https://checkout.epayco.co/checkout.js';
+  script.onload = launch;
+  script.onerror = onError;
+  document.body.appendChild(script);
+}
+
+const GATEWAY_INFO: Record<string, { label: string; usd: boolean }> = {
+  mercadopago: { label: 'Mercado Pago', usd: false },
+  paypal: { label: 'PayPal', usd: true },
+  epayco: { label: 'ePayco', usd: false },
+};
+
 export function CheckoutPage() {
   const product = useMemo(() => (boot() as unknown as CheckoutBoot).product, []);
   const [priceUuid, setPriceUuid] = useState(product?.prices[0]?.uuid ?? '');
@@ -46,6 +92,13 @@ export function CheckoutPage() {
   const isRecurring = product.type === 'subscription' && price?.interval !== 'one_time';
   const availableForGateway = (candidate: Price) =>
     gateway === 'paypal' ? candidate.currency === 'USD' : candidate.currency === 'COP';
+
+  // Pasarelas habilitadas por el servidor. ePayco solo procesa pagos
+  // únicos: se oculta para suscripciones y anuales con renovación.
+  const bootGateways = boot().gateways;
+  const gatewayOptions = (bootGateways.length > 0 ? bootGateways : ['mercadopago', 'paypal']).filter(
+    (id) => id in GATEWAY_INFO && (id !== 'epayco' || product.type === 'one_time'),
+  );
 
   const customFields = product.custom_fields ?? [];
 
@@ -74,7 +127,7 @@ export function CheckoutPage() {
     setSubmitting(true);
 
     try {
-      const result = await api.post<{ redirect_url: string }>('checkout', {
+      const result = await api.post<{ redirect_url: string; widget?: EpaycoWidget }>('checkout', {
         product: product.uuid,
         price: priceUuid,
         gateway,
@@ -82,6 +135,15 @@ export function CheckoutPage() {
         ...(customFields.length > 0 ? { custom_fields: custom } : {}),
         ...parsed.data,
       });
+
+      // ePayco no redirige: abre su checkout como widget en esta página.
+      if (result.widget?.provider === 'epayco') {
+        setSubmitting(false);
+        openEpaycoWidget(result.widget, () =>
+          setErrors({ form: 'No fue posible abrir el pago con ePayco. Intenta de nuevo u otro método.' }),
+        );
+        return;
+      }
 
       window.location.href = result.redirect_url;
     } catch (error) {
@@ -244,12 +306,21 @@ export function CheckoutPage() {
             <div>
               <span className="impay-mb-1.5 impay-block impay-text-sm impay-font-medium">Método de pago</span>
               <div className="impay-grid impay-grid-cols-2 impay-gap-3">
-                {(['mercadopago', 'paypal'] as const).map((option) => {
-                  const hasPrices = product.prices.some((candidate) =>
-                    option === 'paypal' ? candidate.currency === 'USD' : candidate.currency === 'COP',
-                  );
+                {gatewayOptions.map((option) => {
+                  const info = GATEWAY_INFO[option];
+                  const matchesCurrency = (candidate: Price) =>
+                    info.usd ? candidate.currency === 'USD' : candidate.currency === 'COP';
 
-                  if (!hasPrices) return null;
+                  if (!product.prices.some(matchesCurrency)) return null;
+
+                  const note =
+                    option === 'mercadopago'
+                      ? isRecurring
+                        ? 'COP · solo tarjeta (suscripción)'
+                        : 'COP · tarjeta, PSE, Nequi'
+                      : option === 'epayco'
+                        ? 'COP · tarjeta, PSE, efectivo'
+                        : 'USD · internacional';
 
                   return (
                     <button
@@ -257,9 +328,7 @@ export function CheckoutPage() {
                       type="button"
                       onClick={() => {
                         setGateway(option);
-                        const first = product.prices.find((candidate) =>
-                          option === 'paypal' ? candidate.currency === 'USD' : candidate.currency === 'COP',
-                        );
+                        const first = product.prices.find(matchesCurrency);
                         if (first) setPriceUuid(first.uuid);
                       }}
                       className={`impay-rounded-control impay-border impay-px-4 impay-py-3 impay-text-left impay-text-sm ${
@@ -268,14 +337,8 @@ export function CheckoutPage() {
                           : 'impay-border-line impay-bg-white hover:impay-bg-canvas'
                       }`}
                     >
-                      <span className="impay-font-medium">{option === 'mercadopago' ? 'Mercado Pago' : 'PayPal'}</span>
-                      <span className="impay-block impay-text-xs impay-text-muted">
-                        {option === 'mercadopago'
-                          ? isRecurring
-                            ? 'COP · solo tarjeta (suscripción)'
-                            : 'COP · tarjeta, PSE, Nequi'
-                          : 'USD · internacional'}
-                      </span>
+                      <span className="impay-font-medium">{info.label}</span>
+                      <span className="impay-block impay-text-xs impay-text-muted">{note}</span>
                     </button>
                   );
                 })}

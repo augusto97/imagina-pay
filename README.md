@@ -82,6 +82,14 @@ webhooks.
 |---|---|---|
 | Mercado Pago (panel → Webhooks) | `https://tu-sitio.com/wp-json/impay/v1/webhooks/mercadopago` | `payment`, `subscription_preapproval`, `subscription_authorized_payment` |
 | PayPal (Developer Dashboard → Webhooks) | `https://tu-sitio.com/wp-json/impay/v1/webhooks/paypal` | `CHECKOUT.ORDER.APPROVED`, `PAYMENT.CAPTURE.COMPLETED`, `PAYMENT.CAPTURE.REFUNDED`, `PAYMENT.SALE.COMPLETED`, `BILLING.SUBSCRIPTION.*` |
+| ePayco (URL de confirmación) | `https://tu-sitio.com/wp-json/impay/v1/webhooks/epayco` | La URL de confirmación se envía por transacción; verifica que el panel no la sobreescriba |
+
+**ePayco** está habilitado **solo para pagos únicos en COP** (tarjeta, PSE,
+efectivo) — decisión de negocio: su producto de suscripciones tiene costo
+adicional pactado por anexo comercial. Se activa llenando P_CUST_ID_CLIENTE,
+PUBLIC_KEY y P_KEY en Ajustes → ePayco; el checkout lo ofrece automáticamente
+en productos de pago único. Su checkout se abre como widget en la misma
+página (no redirige).
 
 La URL exacta también aparece copiable en la pestaña de cada pasarela en Ajustes.
 Toda entrega con firma inválida responde **401** y queda en logs.

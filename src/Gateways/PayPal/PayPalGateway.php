@@ -59,7 +59,7 @@ final class PayPalGateway implements GatewayInterface
     public function supports(string $feature): bool
     {
         return match ($feature) {
-            'one_time', 'recurring', 'currency_USD' => true,
+            'one_time', 'recurring', 'currency_USD', 'payment_links' => true,
             // pause/resume solo se exponen para Mercado Pago (spec sección 7).
             default => false,
         };

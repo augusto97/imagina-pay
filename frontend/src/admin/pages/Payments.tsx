@@ -76,6 +76,7 @@ export function PaymentsPage() {
           <option value="">Todas las pasarelas</option>
           <option value="mercadopago">Mercado Pago</option>
           <option value="paypal">PayPal</option>
+          <option value="epayco">ePayco</option>
         </Select>
         <Input type="date" className="impay-w-40" value={filters.from} onChange={(e) => update({ from: e.target.value })} />
         <span className="impay-text-sm impay-text-muted">a</span>
@@ -113,7 +114,7 @@ export function PaymentsPage() {
                   </td>
                   <td className="impay-px-4 impay-py-3 impay-text-muted">{payment.method ?? '—'}</td>
                   <td className="impay-px-4 impay-py-3 impay-text-muted">
-                    {payment.gateway === 'mercadopago' ? 'Mercado Pago' : 'PayPal'}
+                    {payment.gateway === 'mercadopago' ? 'Mercado Pago' : payment.gateway === 'epayco' ? 'ePayco' : 'PayPal'}
                   </td>
                   <td className="impay-px-4 impay-py-3">
                     <Badge status={payment.status} label={payment.status} />

@@ -6,10 +6,40 @@
 
 ## Estado actual
 
-- **Versión publicada:** v1.3.2 (rama `release`, zip instalable)
+- **Versión publicada:** v1.4.0 (rama `release`, zip instalable)
 - **Fase actual:** v1 completada ✅ + iteración post-lanzamiento por feedback del usuario en sitio real
 - **Siguiente paso:** QA end-to-end en sandbox (checklist en README.md, requiere credenciales de MP/PayPal) → producción. Fase 8 (Wompi + BillingEngine) queda para v2 cuando se decida.
 - **Gates de calidad:** PHPStan level 8 en verde · PHPUnit 157 tests / 501 aserciones en verde · PHPCS en verde · Frontend: tsc + Vite en verde · Checkout ~66KB gz JS+CSS (presupuesto <90KB cumplido)
+
+---
+
+## Sesión 2026-07-05 (continuación) — v1.4.0: ePayco solo pago único
+
+Pedido del usuario: vincular ePayco SOLO para pago único (las suscripciones no son rentables — coincide con la advertencia comercial del spec §7) + investigar otras pasarelas colombianas/neobancos.
+
+### Tareas completadas
+
+1. **`EpaycoGateway`** (`src/Gateways/Epayco/`): pago único vía checkout Onpage (widget JS con PUBLIC_KEY). `supports()`: one_time/pse/nequi/currency_COP; recurring y payment_links = false — todo método de suscripción lanza `GatewayException`. `CheckoutSession` ganó `?array $widget`: el POST /checkout devuelve `widget: {provider, key, test, data}` en lugar de redirect y el frontend abre checkout.js de ePayco.
+2. **Webhook `/webhooks/epayco`** (URL de confirmación): `EpaycoWebhookVerifier` valida `x_signature` = SHA-256 de `cust_id^p_key^ref^txn^amount^currency` con `hash_equals`; el event_id incluye `x_cod_response` (una confirmación por cambio de estado, idempotente). `handleWebhook` re-consulta SIEMPRE `secure.epayco.co/validation/v1/reference/{ref}` (fetch-before-trust) y aplica el pago vía `applyOrderPayment` (hereda la validación de monto/moneda de v1.3.1). Mapa de estados: 1 aprobada, 2/4/9/10/11 rechazada, 6 reversada→refunded, 3 pendiente.
+3. **Ramificación por capacidades, no por nombre**: nuevo feature `payment_links` en `supports()` (MP y PayPal true). El checkout rechaza `annual_hybrid` en pasarelas sin links (sus renovaciones los necesitan) y el cobro manual del admin valida lo mismo.
+4. Ajustes → tab ePayco (P_CUST_ID_CLIENTE, PUBLIC_KEY, P_KEY cifrada, modo pruebas, URL de confirmación copiable). El checkout solo ofrece ePayco si las 3 credenciales están configuradas (boot dinámico) y solo en productos `one_time`. Página de Pagos: label y filtro ePayco.
+5. +9 tests (175 en total): firma válida/inválida/sin credenciales, event_id por estado, fetch-before-trust con mapeo aprobado/rechazado/reversado, widget data, suscripción rechazada, annual_hybrid rechazado sin payment_links.
+
+### Decisiones tomadas
+
+| # | Decisión | Razón |
+|---|---|---|
+| 65 | ePayco vía checkout Onpage (widget) y no link de cobro de APIFY | El widget clásico permite fijar extra1 (uuid del order), URL de confirmación y de respuesta por transacción — trazabilidad idéntica a MP; los links de APIFY no garantizan referencia propia |
+| 66 | Capacidad `payment_links` en `supports()` en vez de excluir "epayco" por nombre | Principio del spec §7: el core se ramifica por capacidades/modo, jamás por nombre de pasarela |
+| 67 | ePayco oculto en checkout salvo producto `one_time` con credenciales configuradas | Evita estados imposibles (suscripción/anual con pasarela que no los soporta) sin mensajes de error |
+
+### Investigación de pasarelas (resumen; detalle en la conversación)
+
+- **Wompi (Bancolombia)** sigue siendo la prioridad v2 del spec: única con **Nequi recurrente** (API de payment sources + BillingEngine ya diseñado, Fase 8). Tarifas ~2,99%+IVA tarjeta / 1,49% PSE.
+- **Bre-B** (BanRep, pagos inmediatos interoperables 24/7, 2025-2026): no es pasarela — llega al plugin a través de las pasarelas (MP/Wompi/Bold ya lo exponen como método). Nada que integrar directo en v1.
+- **Nequi Conecta** (API directa de botón + suscripciones/débito autorizado) y **Daviplata API Market**: viables como gateway adicional v2/v3, requieren convenio comercial directo.
+- **Bold**: fuerte en POS físico; su pasarela online aún sin ventaja clara sobre Wompi para este caso.
+- **PayU**: agregador maduro pero sin diferenciador para catálogo pequeño; comisiones similares.
 
 ---
 

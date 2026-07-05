@@ -8,6 +8,7 @@ use ImaginaPay\Domain\Entities\Price;
 use ImaginaPay\Domain\Entities\Product;
 use ImaginaPay\Domain\Repositories\PriceRepository;
 use ImaginaPay\Domain\Repositories\ProductRepository;
+use ImaginaPay\Gateways\Epayco\EpaycoGateway;
 use ImaginaPay\Rest\Admin\Presenter;
 use ImaginaPay\Support\Money;
 
@@ -36,6 +37,7 @@ final class Shortcodes
     public function __construct(
         private readonly ProductRepository $products,
         private readonly PriceRepository $prices,
+        private readonly EpaycoGateway $epayco,
     ) {
     }
 
@@ -248,10 +250,17 @@ final class Shortcodes
             static fn ($price): bool => $price->status->value === 'active',
         ));
 
+        // ePayco solo aparece si está configurado (MP/PayPal son la base).
+        $gateways = ['mercadopago', 'paypal'];
+
+        if ($this->epayco->isConfigured()) {
+            $gateways[] = 'epayco';
+        }
+
         $boot = [
             'restUrl' => esc_url_raw(rest_url('impay/v1/')),
             'nonce' => wp_create_nonce('wp_rest'),
-            'gateways' => ['mercadopago', 'paypal'],
+            'gateways' => $gateways,
             'product' => Presenter::product($product, $activePrices),
         ];
 
