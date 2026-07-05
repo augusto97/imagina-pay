@@ -95,11 +95,15 @@ trait EntityFactory
         );
     }
 
+    /**
+     * @param array<string, mixed>|null $meta
+     */
     private function makeOrder(
         OrderStatus $status = OrderStatus::Pending,
         OrderKind $kind = OrderKind::Purchase,
         int $id = 9,
         ?int $subscriptionId = null,
+        ?array $meta = null,
     ): Order {
         return new Order(
             id: $id,
@@ -117,7 +121,7 @@ trait EntityFactory
             gatewayPaymentId: null,
             externalReference: '44444444-4444-4444-8444-444444444444',
             paidAt: null,
-            meta: null,
+            meta: $meta,
             createdAt: $this->baseDate(),
             updatedAt: $this->baseDate(),
         );

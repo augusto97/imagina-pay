@@ -142,8 +142,10 @@ final class CheckoutServiceTest extends TestCase
     {
         $customer = $this->makeCustomer();
         $this->customers->shouldReceive('findByEmail')->with('cliente@example.com')->andReturn($customer);
-        $this->customers->shouldReceive('update')->once();
-        $this->customers->shouldReceive('find')->with(1)->andReturn($customer);
+
+        // Los datos de un customer existente JAMÁS se actualizan en el
+        // checkout: se difieren al pago confirmado (anti-suplantación).
+        $this->customers->shouldNotReceive('update');
     }
 
     public function testOneTimeCheckoutCreatesOrderAndRedirects(): void
@@ -290,6 +292,38 @@ final class CheckoutServiceTest extends TestCase
 
         $this->expectException(NotFoundException::class);
         $this->service->start($this->input());
+    }
+
+    public function testProfileChangesOfExistingCustomerAreDeferredToOrderMeta(): void
+    {
+        $this->expectProductAndPrice(
+            $this->makeProduct(ProductType::OneTime),
+            $this->makePrice(PriceInterval::OneTime),
+        );
+        $this->expectExistingCustomer(); // makeCustomer: "Cliente de Prueba", sin empresa
+
+        $gateway = $this->registerGateway();
+
+        $this->orders->shouldReceive('insert')->once()->with(Mockery::on(
+            static function (array $data): bool {
+                $meta = json_decode((string) $data['meta'], true);
+                $pending = is_array($meta) ? ($meta['pending_customer_update'] ?? null) : null;
+
+                return is_array($pending)
+                    && $pending['full_name'] === 'Nombre Cambiado'
+                    && $pending['company'] === 'ACME SAS'
+                    && !isset($pending['country']); // CO no cambió: no va en el pending
+            },
+        ))->andReturn(9);
+        $this->orders->shouldReceive('find')->andReturn($this->makeOrder());
+        $this->orders->shouldReceive('setGatewayRef');
+        $gateway->shouldReceive('createOneTimeCheckout')->andReturn(new CheckoutSession('https://mp.test/init'));
+
+        $input = $this->input();
+        $input['full_name'] = 'Nombre Cambiado';
+        $input['company'] = 'ACME SAS';
+
+        $this->service->start($input);
     }
 
     public function testCustomFieldAnswersAreStoredInOrderMeta(): void

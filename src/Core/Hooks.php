@@ -8,7 +8,6 @@ use ImaginaPay\Domain\Entities\Order;
 use ImaginaPay\Domain\Entities\PaymentLink;
 use ImaginaPay\Domain\Entities\Product;
 use ImaginaPay\Domain\Entities\Subscription;
-use ImaginaPay\Domain\Repositories\CustomerRepository;
 use ImaginaPay\Domain\Services\CustomerAccountService;
 use ImaginaPay\Domain\Services\ProvisioningService;
 use ImaginaPay\Gateways\GatewayPayment;
@@ -56,14 +55,11 @@ final class Hooks
             }
         }, self::PROVISION_PRIORITY);
 
-        // ── Cuenta WP del cliente (prio 12: entre provisión y emails) ──
+        // ── Cuenta WP del cliente (prio 12: entre provisión y emails).
+        // También aplica los cambios de perfil pendientes del checkout. ──
         add_action('impay_order_paid', function (mixed $order): void {
             if ($order instanceof Order) {
-                $customer = $this->container->get(CustomerRepository::class)->find($order->customerId);
-
-                if ($customer !== null) {
-                    $this->container->get(CustomerAccountService::class)->ensureWpUser($customer);
-                }
+                $this->container->get(CustomerAccountService::class)->onOrderPaid($order);
             }
         }, 12);
 

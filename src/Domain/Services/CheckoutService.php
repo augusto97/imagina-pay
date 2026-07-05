@@ -82,9 +82,19 @@ final class CheckoutService
 
         $customFields = $this->collectCustomFields($product, $input['custom_fields'] ?? null);
 
-        $customer = $this->upsertCustomer($input);
+        [$customer, $pendingUpdate] = $this->resolveCustomer($input);
         $now = $this->clock->now();
         $orderUuid = Uuid::v4();
+
+        $meta = [];
+
+        if ($customFields !== null) {
+            $meta['custom_fields'] = $customFields;
+        }
+
+        if ($pendingUpdate !== null) {
+            $meta['pending_customer_update'] = $pendingUpdate;
+        }
 
         $orderId = $this->orders->insert([
             'uuid' => $orderUuid,
@@ -98,7 +108,7 @@ final class CheckoutService
             'amount' => $price->amount,
             'gateway' => $gateway->id(),
             'external_reference' => $orderUuid,
-            'meta' => $customFields === null ? null : (string) wp_json_encode(['custom_fields' => $customFields]),
+            'meta' => $meta === [] ? null : (string) wp_json_encode($meta),
             'created_at' => $now->format('Y-m-d H:i:s'),
             'updated_at' => $now->format('Y-m-d H:i:s'),
         ]);
@@ -239,9 +249,17 @@ final class CheckoutService
     }
 
     /**
+     * Cliente del checkout. Un customer NUEVO se crea de inmediato (el
+     * order lo necesita). Para un customer EXISTENTE los datos del
+     * formulario NO se aplican todavía: cualquiera que conozca el email
+     * podría sobreescribir su perfil sin pagar. Los cambios quedan en el
+     * meta del order y se aplican solo al confirmarse el pago
+     * (CustomerAccountService::onOrderPaid).
+     *
      * @param array<string, mixed> $input
+     * @return array{0: Customer, 1: array<string, string>|null} Customer + cambios pendientes (o null).
      */
-    private function upsertCustomer(array $input): Customer
+    private function resolveCustomer(array $input): array
     {
         $email = (string) $input['email'];
         $now = $this->clock->now();
@@ -258,9 +276,24 @@ final class CheckoutService
         $existing = $this->customers->findByEmail($email);
 
         if ($existing !== null) {
-            $this->customers->update($existing->id, $fields, $now);
+            $current = [
+                'full_name' => $existing->fullName,
+                'company' => $existing->company,
+                'tax_id_type' => $existing->taxIdType?->value,
+                'tax_id' => $existing->taxId,
+                'country' => $existing->country,
+                'phone' => $existing->phone,
+            ];
 
-            return $this->customers->find($existing->id) ?? $existing;
+            $pending = [];
+
+            foreach ($fields as $key => $value) {
+                if ($value !== null && $value !== '' && $value !== $current[$key]) {
+                    $pending[$key] = $value;
+                }
+            }
+
+            return [$existing, $pending === [] ? null : $pending];
         }
 
         $customerId = $this->customers->insert([
@@ -277,6 +310,6 @@ final class CheckoutService
             throw new NotFoundException('No fue posible registrar el cliente.');
         }
 
-        return $customer;
+        return [$customer, null];
     }
 }
