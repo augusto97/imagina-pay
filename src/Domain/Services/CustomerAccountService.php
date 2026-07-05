@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace ImaginaPay\Domain\Services;
 
 use ImaginaPay\Domain\Entities\Customer;
+use ImaginaPay\Domain\Entities\Order;
 use ImaginaPay\Domain\Repositories\CustomerRepository;
 use ImaginaPay\Mail\EmailNotifications;
 use ImaginaPay\Support\Clock;
@@ -23,6 +24,53 @@ class CustomerAccountService
         private readonly Clock $clock,
         private readonly Logger $logger,
     ) {
+    }
+
+    /**
+     * Listener de impay_order_paid: aplica los cambios de perfil que el
+     * checkout dejó pendientes (nunca antes del pago — ver
+     * CheckoutService::resolveCustomer) y garantiza el usuario WP.
+     */
+    public function onOrderPaid(Order $order): void
+    {
+        $customer = $this->customers->find($order->customerId);
+
+        if ($customer === null) {
+            return;
+        }
+
+        $this->applyPendingProfileUpdate($customer, $order);
+
+        $this->ensureWpUser($this->customers->find($customer->id) ?? $customer);
+    }
+
+    private function applyPendingProfileUpdate(Customer $customer, Order $order): void
+    {
+        $pending = $order->meta['pending_customer_update'] ?? null;
+
+        if (!is_array($pending) || $pending === []) {
+            return;
+        }
+
+        $fields = [];
+
+        foreach (['full_name', 'company', 'tax_id_type', 'tax_id', 'country', 'phone'] as $key) {
+            if (isset($pending[$key]) && is_string($pending[$key]) && $pending[$key] !== '') {
+                $fields[$key] = $pending[$key];
+            }
+        }
+
+        if ($fields === []) {
+            return;
+        }
+
+        $this->customers->update($customer->id, $fields, $this->clock->now());
+
+        $this->logger->info('accounts', sprintf(
+            'Perfil de %s actualizado tras confirmarse el pago del order %s.',
+            $customer->email,
+            $order->uuid,
+        ));
     }
 
     public function ensureWpUser(Customer $customer): void

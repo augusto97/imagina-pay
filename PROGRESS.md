@@ -6,7 +6,7 @@
 
 ## Estado actual
 
-- **Versión publicada:** v1.3.1 (rama `release`, zip instalable)
+- **Versión publicada:** v1.3.2 (rama `release`, zip instalable)
 - **Fase actual:** v1 completada ✅ + iteración post-lanzamiento por feedback del usuario en sitio real
 - **Siguiente paso:** QA end-to-end en sandbox (checklist en README.md, requiere credenciales de MP/PayPal) → producción. Fase 8 (Wompi + BillingEngine) queda para v2 cuando se decida.
 - **Gates de calidad:** PHPStan level 8 en verde · PHPUnit 157 tests / 501 aserciones en verde · PHPCS en verde · Frontend: tsc + Vite en verde · Checkout ~66KB gz JS+CSS (presupuesto <90KB cumplido)
@@ -29,9 +29,11 @@ Pregunta del usuario: ¿el plugin es seguro para producción con suscripciones r
 - Público: /checkout con rate limit 10/10min + honeypot + nonce; /portal/login 5/10min vía `wp_signon`; /orders/{uuid}/status solo devuelve {status, product_name} con uuid v4 de `random_bytes`.
 - Datos: `$wpdb->prepare` al 100 % (PHPStan literal-string); montos enteros; AES-256-GCM (HKDF de AUTH_KEY, IV aleatorio, payload versionado); secretos enmascarados en REST y el PUT ignora valores enmascarados; boot JSON seguro (json_encode escapa `/`); campos personalizados con strip_tags + escape en email/React.
 
-### Observaciones aceptadas (documentadas, sin cambio)
+### v1.3.2 — cierre de la observación de perfil
 
-- El checkout actualiza datos de perfil de un customer existente por email sin verificar propiedad (quien conozca el email puede alterar nombre/datos fiscales — no da acceso a nada). Mitigación futura: aplicar cambios solo al confirmarse el pago.
+El checkout ya NO actualiza los datos de un customer existente al iniciar el pago (quien conociera el email podía alterar nombre/datos fiscales sin pagar). Ahora `CheckoutService::resolveCustomer` guarda solo los campos que cambian en `orders.meta.pending_customer_update` y `CustomerAccountService::onOrderPaid` (listener de `impay_order_paid`, prio 12) los aplica únicamente al confirmarse el pago, con lista blanca de campos (email y wp_user_id jamás). Los customers nuevos se crean igual que antes (el order los necesita). +4 tests (166 en total).
+
+### Observaciones aceptadas (documentadas, sin cambio)
 - Rate limit por `REMOTE_ADDR`: detrás de CDN/proxy hay que configurar la IP real a nivel de servidor.
 - Requisitos de despliegue: HTTPS obligatorio, `AUTH_KEY` única (rotarla invalida credenciales guardadas), y registrar el secret/webhook ID de cada pasarela ANTES de vender.
 
