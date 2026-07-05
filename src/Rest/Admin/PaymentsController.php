@@ -177,6 +177,13 @@ final class PaymentsController extends AbstractController
                     $value = sprintf('%d,%02d', intdiv($cents, 100), $cents % 100);
                 }
 
+                // Anti CSV/formula injection: nombres y emails los escribe el
+                // comprador; un valor que empieza con = + - @ o TAB se
+                // ejecutaría como fórmula al abrir el archivo en Excel/Sheets.
+                if ($value !== '' && in_array($value[0], ['=', '+', '-', '@', "\t"], true)) {
+                    $value = "'" . $value;
+                }
+
                 $line[] = '"' . str_replace('"', '""', $value) . '"';
             }
 

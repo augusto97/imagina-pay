@@ -85,13 +85,15 @@ final class PaymentServiceTest extends TestCase
     private function gatewayPayment(
         PaymentStatus $status = PaymentStatus::Approved,
         string $id = 'pay-100',
+        int $amount = 4990000,
+        string $currency = 'COP',
     ): GatewayPayment {
         return new GatewayPayment(
             gateway: 'mercadopago',
             gatewayPaymentId: $id,
             status: $status,
-            currency: 'COP',
-            amount: 4990000,
+            currency: $currency,
+            amount: $amount,
             method: 'visa',
             paidAt: $this->now,
             raw: ['id' => $id],
@@ -136,6 +138,37 @@ final class PaymentServiceTest extends TestCase
         Actions\expectDone('impay_order_paid')->once();
 
         $this->service->applyOrderPayment($order, $this->gatewayPayment());
+    }
+
+    public function testApprovedPaymentWithLowerAmountDoesNotMarkOrderPaid(): void
+    {
+        $order = $this->makeOrder(OrderStatus::Pending); // 4990000 COP
+
+        $this->payments->shouldReceive('findByGatewayPaymentId')->andReturnNull();
+        $this->payments->shouldReceive('insert')->once()->andReturn(1); // queda para auditoría
+        $this->orders->shouldReceive('setGatewayPaymentId')->once();
+
+        $this->orders->shouldNotReceive('updateStatus');
+
+        $this->service->applyOrderPayment($order, $this->gatewayPayment(amount: 100000));
+
+        $this->assertSame(0, did_action('impay_order_paid'));
+        $this->assertSame(0, did_action('impay_payment_approved'));
+    }
+
+    public function testApprovedPaymentWithWrongCurrencyDoesNotMarkOrderPaid(): void
+    {
+        $order = $this->makeOrder(OrderStatus::Pending); // COP
+
+        $this->payments->shouldReceive('findByGatewayPaymentId')->andReturnNull();
+        $this->payments->shouldReceive('insert')->once()->andReturn(1);
+        $this->orders->shouldReceive('setGatewayPaymentId')->once();
+
+        $this->orders->shouldNotReceive('updateStatus');
+
+        $this->service->applyOrderPayment($order, $this->gatewayPayment(currency: 'USD'));
+
+        $this->assertSame(0, did_action('impay_order_paid'));
     }
 
     public function testDuplicatePaymentWithSameStatusIsIgnored(): void

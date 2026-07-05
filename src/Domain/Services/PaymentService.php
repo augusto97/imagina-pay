@@ -53,6 +53,27 @@ class PaymentService
         $now = $this->clock->now();
         $this->orders->setGatewayPaymentId($order->id, $payment->gatewayPaymentId, $now);
 
+        // Defensa en profundidad: un pago aprobado solo marca el order como
+        // pagado si monto y moneda coinciden con lo que se cobró. El pago
+        // queda registrado (auditoría) pero el order sigue pending y la
+        // discrepancia queda en logs para revisión manual.
+        if (
+            $payment->status === PaymentStatus::Approved
+            && (strtoupper($payment->currency) !== strtoupper($order->currency) || $payment->amount < $order->amount)
+        ) {
+            $this->logger->error('payments', sprintf(
+                'Pago %s aprobado NO aplicado al order %s: monto/moneda no coinciden (pago: %d %s, order: %d %s). Requiere revisión manual.',
+                $payment->gatewayPaymentId,
+                $order->uuid,
+                $payment->amount,
+                $payment->currency,
+                $order->amount,
+                $order->currency,
+            ));
+
+            return;
+        }
+
         if ($payment->status === PaymentStatus::Approved) {
             // Un recibo por pago aprobado (el upsert deduplica reintentos).
             do_action('impay_payment_approved', $payment, $order->customerId);

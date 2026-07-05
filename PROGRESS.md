@@ -6,10 +6,34 @@
 
 ## Estado actual
 
-- **Versión publicada:** v1.3.0 (rama `release`, zip instalable)
+- **Versión publicada:** v1.3.1 (rama `release`, zip instalable)
 - **Fase actual:** v1 completada ✅ + iteración post-lanzamiento por feedback del usuario en sitio real
 - **Siguiente paso:** QA end-to-end en sandbox (checklist en README.md, requiere credenciales de MP/PayPal) → producción. Fase 8 (Wompi + BillingEngine) queda para v2 cuando se decida.
 - **Gates de calidad:** PHPStan level 8 en verde · PHPUnit 157 tests / 501 aserciones en verde · PHPCS en verde · Frontend: tsc + Vite en verde · Checkout ~66KB gz JS+CSS (presupuesto <90KB cumplido)
+
+---
+
+## Sesión 2026-07-05 — v1.3.1: auditoría de seguridad + endurecimiento
+
+Pregunta del usuario: ¿el plugin es seguro para producción con suscripciones reales? Se auditó el código de los caminos críticos (firmas de webhooks MP/PayPal, middleware REST, portal/IDOR, login, crypto, endpoints públicos, export, XSS en shortcodes/recibo/boot JSON, aleatoriedad de UUIDs).
+
+### Resultado: base sólida, 2 endurecimientos aplicados
+
+1. **Validación de monto/moneda del pago** (`PaymentService::applyOrderPayment`): un pago aprobado ya NO marca el order como pagado si la moneda difiere o el monto es menor al del order. El pago queda registrado (auditoría), el order sigue `pending` y la discrepancia va a logs con nivel error. Cubre MP y PayPal (ambos convergen aquí). +2 tests.
+2. **Anti CSV/formula injection en el export contable**: valores que empiezan con `= + - @` o TAB (p. ej. un "nombre" malicioso escrito por un comprador en el checkout) se neutralizan con `'` antes de escribir el CSV — sin esto se ejecutarían como fórmula al abrir en Excel/Sheets.
+
+### Verificado en la auditoría (sin hallazgos)
+
+- Webhooks: HMAC MP con `hash_equals` + ventana 5 min + normalización ms; PayPal vía endpoint oficial verify-webhook-signature; 401 ante firma inválida; secret sin configurar = rechazo total; idempotencia UNIQUE(gateway,event_id); MP siempre re-fetch a la API (nunca confía en el payload).
+- Autorización: nonce + capability `manage_impay` en todo el admin; portal filtra el 100 % de recursos por `customer.wp_user_id === get_current_user_id()` (sin IDOR); recibo con check de propiedad y todo escapado.
+- Público: /checkout con rate limit 10/10min + honeypot + nonce; /portal/login 5/10min vía `wp_signon`; /orders/{uuid}/status solo devuelve {status, product_name} con uuid v4 de `random_bytes`.
+- Datos: `$wpdb->prepare` al 100 % (PHPStan literal-string); montos enteros; AES-256-GCM (HKDF de AUTH_KEY, IV aleatorio, payload versionado); secretos enmascarados en REST y el PUT ignora valores enmascarados; boot JSON seguro (json_encode escapa `/`); campos personalizados con strip_tags + escape en email/React.
+
+### Observaciones aceptadas (documentadas, sin cambio)
+
+- El checkout actualiza datos de perfil de un customer existente por email sin verificar propiedad (quien conozca el email puede alterar nombre/datos fiscales — no da acceso a nada). Mitigación futura: aplicar cambios solo al confirmarse el pago.
+- Rate limit por `REMOTE_ADDR`: detrás de CDN/proxy hay que configurar la IP real a nivel de servidor.
+- Requisitos de despliegue: HTTPS obligatorio, `AUTH_KEY` única (rotarla invalida credenciales guardadas), y registrar el secret/webhook ID de cada pasarela ANTES de vender.
 
 ---
 
