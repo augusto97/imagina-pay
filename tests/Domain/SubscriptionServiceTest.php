@@ -126,15 +126,18 @@ final class SubscriptionServiceTest extends TestCase
         $this->assertSame($session, $this->service->startGatewaySubscription($subscription, $price));
     }
 
-    public function testTokenizedModeIsRejectedUntilPhase8(): void
+    public function testTokenizedModeDelegatesToGatewayCreateSubscription(): void
     {
-        $this->gateways->register($this->gateway('wompi', GatewayMode::Tokenized));
+        $gateway = $this->gateway('wompi', GatewayMode::Tokenized);
+        $this->gateways->register($gateway);
 
-        $this->expectException(GatewayException::class);
-        $this->service->startGatewaySubscription(
-            $this->subscription('wompi', SubscriptionStatus::Pending),
-            $this->price(),
-        );
+        $subscription = $this->subscription('wompi', SubscriptionStatus::Pending);
+        $price = $this->price();
+        $session = new CheckoutSession('https://sitio.test/gracias-compra/');
+
+        $gateway->shouldReceive('createSubscription')->once()->with($subscription, $price)->andReturn($session);
+
+        $this->assertSame($session, $this->service->startGatewaySubscription($subscription, $price));
     }
 
     public function testCancelAtPeriodEndKeepsActiveAndStopsGatewayBilling(): void

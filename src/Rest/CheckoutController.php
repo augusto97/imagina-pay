@@ -69,6 +69,8 @@ final class CheckoutController extends AbstractController
             'country' => ['type' => 'string', 'max' => 2],
             'phone' => ['type' => 'string', 'max' => 40],
             'custom_fields' => ['type' => 'array'],
+            'payment_token' => ['type' => 'string', 'max' => 200],
+            'payment_method_type' => ['type' => 'string', 'enum' => ['CARD', 'NEQUI']],
         ]);
 
         return new \WP_REST_Response($this->checkout->start($input), 200);

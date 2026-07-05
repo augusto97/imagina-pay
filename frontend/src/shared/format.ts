@@ -66,3 +66,14 @@ export const statusLabels: Record<string, string> = {
   archived: 'Archivado',
   open: 'Abierto',
 };
+
+const gatewayLabels: Record<string, string> = {
+  mercadopago: 'Mercado Pago',
+  paypal: 'PayPal',
+  epayco: 'ePayco',
+  wompi: 'Wompi',
+};
+
+export function gatewayLabel(gateway: string): string {
+  return gatewayLabels[gateway] ?? gateway;
+}

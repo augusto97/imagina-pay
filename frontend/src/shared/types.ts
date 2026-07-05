@@ -60,6 +60,7 @@ export interface Subscription {
   cancel_at_period_end: boolean;
   failed_payments: number;
   license_key: string | null;
+  payment_method: { type?: string; brand?: string | null; last_four?: string | null } | null;
   manual_task_pending: boolean;
   customer: Customer | null;
   product: { uuid: string; name: string; type: string } | null;

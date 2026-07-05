@@ -9,7 +9,6 @@ use ImaginaPay\Domain\Entities\Subscription;
 use ImaginaPay\Domain\Enums\SubscriptionStatus;
 use ImaginaPay\Domain\Repositories\SubscriptionRepository;
 use ImaginaPay\Domain\StateMachine\SubscriptionStateMachine;
-use ImaginaPay\Exceptions\GatewayException;
 use ImaginaPay\Gateways\CheckoutSession;
 use ImaginaPay\Gateways\GatewayMode;
 use ImaginaPay\Gateways\GatewayRegistry;
@@ -41,12 +40,11 @@ final class SubscriptionService
         $gateway = $this->gateways->get($subscription->gateway);
 
         return match ($gateway->mode()) {
-            GatewayMode::HostedSubscription => $gateway->createSubscription($subscription, $price),
-            // El alta tokenizada (widget de tokenización + primer cobro vía
-            // BillingEngine) se implementa en la Fase 8 junto con Wompi.
-            GatewayMode::Tokenized => throw new GatewayException(
-                'Los cobros tokenizados aún no están disponibles (BillingEngine, Fase 8).',
-            ),
+            // Hosted: la pasarela crea su objeto de suscripción y redirige.
+            // Tokenized (Wompi): el gateway crea la fuente de pago con el
+            // token del navegador (meta pending_token) y dispara el primer
+            // cobro; los siguientes los agenda el BillingEngine.
+            GatewayMode::HostedSubscription, GatewayMode::Tokenized => $gateway->createSubscription($subscription, $price),
         };
     }
 

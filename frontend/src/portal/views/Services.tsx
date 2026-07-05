@@ -68,11 +68,17 @@ export function ServicesView() {
               <h3 className="impay-font-semibold impay-tracking-tight">{subscription.product?.name ?? 'Servicio'}</h3>
               <p className="impay-mt-1 impay-text-sm impay-text-muted">
                 {subscription.current_period_end
-                  ? subscription.gateway_sub_id
+                  ? subscription.gateway_sub_id || subscription.payment_method
                     ? `Se renueva el ${date(subscription.current_period_end)}`
                     : `Vence el ${date(subscription.current_period_end)}`
                   : ''}
                 {subscription.cancel_at_period_end && ' · se cancelará al vencer'}
+                {subscription.payment_method && (
+                  <span className="impay-block impay-text-xs">
+                    {subscription.payment_method.type === 'NEQUI' ? 'Nequi' : subscription.payment_method.brand ?? 'Tarjeta'}
+                    {subscription.payment_method.last_four ? ` •••• ${subscription.payment_method.last_four}` : ''}
+                  </span>
+                )}
               </p>
             </div>
             <Badge status={subscription.status} label={subscription.status_label} />

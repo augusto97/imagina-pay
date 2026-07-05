@@ -196,6 +196,25 @@ class SubscriptionRepository extends AbstractRepository
     }
 
     /**
+     * Suscripciones con el periodo vencido y estado cobrable, para el
+     * BillingEngine (que filtra por gateways modo Tokenized).
+     *
+     * @return list<Subscription>
+     */
+    public function findDueForBilling(\DateTimeImmutable $now, int $limit = 500): array
+    {
+        $prepared = $this->db->prepare(
+            'SELECT * FROM %i WHERE current_period_end IS NOT NULL AND current_period_end <= %s'
+            . " AND status IN ('active', 'past_due') ORDER BY current_period_end ASC LIMIT %d",
+            $this->table('subscriptions'),
+            $this->formatDate($now),
+            $limit,
+        );
+
+        return $this->mapRows($prepared);
+    }
+
+    /**
      * Suscripciones con motor en la pasarela que deben cotejarse a diario.
      *
      * @return list<Subscription>

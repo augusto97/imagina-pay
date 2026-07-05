@@ -22,6 +22,9 @@ final class Settings
         'paypal_client_secret',
         'paypal_client_secret_test',
         'epayco_p_key',
+        'wompi_private_key',
+        'wompi_events_secret',
+        'wompi_integrity_secret',
         'updater_api_key',
     ];
 

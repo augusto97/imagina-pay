@@ -9,6 +9,7 @@ export interface BootData {
   adminUrl?: string;
   userName?: string;
   gateways: string[];
+  wompi?: { public_key: string; base_url: string };
   version?: string;
 }
 

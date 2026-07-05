@@ -20,6 +20,7 @@ use ImaginaPay\Domain\Repositories\ProductRepository;
 use ImaginaPay\Domain\Repositories\SubscriptionRepository;
 use ImaginaPay\Exceptions\NotFoundException;
 use ImaginaPay\Exceptions\ValidationException;
+use ImaginaPay\Gateways\GatewayMode;
 use ImaginaPay\Gateways\GatewayRegistry;
 use ImaginaPay\Support\Clock;
 use ImaginaPay\Support\Logger;
@@ -80,6 +81,26 @@ final class CheckoutService
             ]);
         }
 
+        // Gateways modo Tokenized (Wompi): la suscripción necesita el token
+        // del medio de pago creado en el navegador (el PAN nunca llega aquí).
+        $paymentToken = null;
+        $paymentTokenType = null;
+
+        if ($isRecurring && $gateway->mode() === GatewayMode::Tokenized) {
+            $paymentToken = isset($input['payment_token']) && is_string($input['payment_token'])
+                ? trim($input['payment_token'])
+                : '';
+            $paymentTokenType = isset($input['payment_method_type']) && is_string($input['payment_method_type'])
+                ? strtoupper($input['payment_method_type'])
+                : '';
+
+            if ($paymentToken === '' || !in_array($paymentTokenType, ['CARD', 'NEQUI'], true)) {
+                throw new ValidationException([
+                    'payment_token' => 'Autoriza tu medio de pago (tarjeta o Nequi) para continuar.',
+                ]);
+            }
+        }
+
         // Los anuales híbridos renuevan por link de pago: la pasarela debe
         // poder generarlos (ePayco no — está solo para pago único).
         if ($product->type === ProductType::AnnualHybrid && !$gateway->supports('payment_links')) {
@@ -122,7 +143,7 @@ final class CheckoutService
         ]);
 
         $session = $isRecurring
-            ? $this->startSubscription($orderId, $orderUuid, $customer, $product, $price, $gateway->id())
+            ? $this->startSubscription($orderId, $orderUuid, $customer, $product, $price, $gateway->id(), $paymentToken, $paymentTokenType)
             : $this->startOneTime($orderId, $gateway->id());
 
         if ($session->gatewayRef !== null) {
@@ -166,8 +187,19 @@ final class CheckoutService
         Product $product,
         Price $price,
         string $gatewayId,
+        ?string $paymentToken = null,
+        ?string $paymentTokenType = null,
     ): \ImaginaPay\Gateways\CheckoutSession {
         $now = $this->clock->now();
+
+        $meta = ['initial_order_uuid' => $orderUuid];
+
+        // El token de un solo uso viaja en el meta; el gateway tokenized lo
+        // consume al crear la fuente de pago y lo elimina.
+        if ($paymentToken !== null && $paymentToken !== '') {
+            $meta['pending_token'] = $paymentToken;
+            $meta['pending_token_type'] = (string) $paymentTokenType;
+        }
 
         $subscriptionId = $this->subscriptions->insert([
             'uuid' => Uuid::v4(),
@@ -179,7 +211,7 @@ final class CheckoutService
             'status' => SubscriptionStatus::Pending->value,
             'cancel_at_period_end' => 0,
             'failed_payments' => 0,
-            'meta' => (string) wp_json_encode(['initial_order_uuid' => $orderUuid]),
+            'meta' => (string) wp_json_encode($meta),
             'created_at' => $now->format('Y-m-d H:i:s'),
             'updated_at' => $now->format('Y-m-d H:i:s'),
         ]);
