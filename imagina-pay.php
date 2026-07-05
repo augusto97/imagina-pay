@@ -3,7 +3,7 @@
  * Plugin Name:       Imagina Pay
  * Plugin URI:        https://imaginawp.com
  * Description:       Venta de productos digitales y suscripciones para LATAM con Mercado Pago y PayPal. Sin WooCommerce.
- * Version:           1.3.0
+ * Version:           1.3.1
  * Requires at least: 6.4
  * Requires PHP:      8.1
  * Author:            Imagina WP
@@ -21,7 +21,7 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-define('IMPAY_VERSION', '1.3.0');
+define('IMPAY_VERSION', '1.3.1');
 define('IMPAY_PLUGIN_FILE', __FILE__);
 define('IMPAY_PLUGIN_DIR', plugin_dir_path(__FILE__));
 
