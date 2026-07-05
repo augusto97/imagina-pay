@@ -31,6 +31,8 @@ use ImaginaPay\Gateways\MercadoPago\MercadoPagoGateway;
 use ImaginaPay\Gateways\MercadoPago\MercadoPagoWebhookHandler;
 use ImaginaPay\Gateways\MercadoPago\MercadoPagoWebhookVerifier;
 use ImaginaPay\Frontend\Shortcodes;
+use ImaginaPay\Gateways\Epayco\EpaycoGateway;
+use ImaginaPay\Gateways\Epayco\EpaycoWebhookVerifier;
 use ImaginaPay\Gateways\PayPal\PayPalClient;
 use ImaginaPay\Gateways\PayPal\PayPalGateway;
 use ImaginaPay\Gateways\PayPal\PayPalWebhookHandler;
@@ -245,11 +247,26 @@ final class Plugin
             $c->get(Logger::class),
         ));
 
+        // ePayco (solo pago único — ver CLAUDE.md §7).
+        $c->singleton(EpaycoWebhookVerifier::class, static fn (): EpaycoWebhookVerifier => new EpaycoWebhookVerifier());
+
+        $c->singleton(EpaycoGateway::class, static fn (Container $c): EpaycoGateway => new EpaycoGateway(
+            $c->get(HttpClient::class),
+            $c->get(Settings::class),
+            $c->get(EpaycoWebhookVerifier::class),
+            $c->get(ProductRepository::class),
+            $c->get(CustomerRepository::class),
+            $c->get(OrderRepository::class),
+            $c->get(PaymentService::class),
+            $c->get(Logger::class),
+        ));
+
         // Registro de pasarelas.
         $c->singleton(GatewayRegistry::class, static function (Container $c): GatewayRegistry {
             $registry = new GatewayRegistry();
             $registry->register($c->get(MercadoPagoGateway::class));
             $registry->register($c->get(PayPalGateway::class));
+            $registry->register($c->get(EpaycoGateway::class));
 
             return $registry;
         });
@@ -482,6 +499,7 @@ final class Plugin
         $c->singleton(Shortcodes::class, static fn (Container $c): Shortcodes => new Shortcodes(
             $c->get(ProductRepository::class),
             $c->get(PriceRepository::class),
+            $c->get(EpaycoGateway::class),
         ));
 
         $c->singleton(PortalController::class, static fn (Container $c): PortalController => new PortalController(

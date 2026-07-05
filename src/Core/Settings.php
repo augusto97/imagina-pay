@@ -21,6 +21,7 @@ final class Settings
         'mercadopago_webhook_secret',
         'paypal_client_secret',
         'paypal_client_secret_test',
+        'epayco_p_key',
         'updater_api_key',
     ];
 

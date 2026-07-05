@@ -57,7 +57,7 @@ final class MercadoPagoGateway implements GatewayInterface
     public function supports(string $feature): bool
     {
         return match ($feature) {
-            'one_time', 'recurring', 'pause', 'resume', 'pse', 'nequi', 'currency_COP' => true,
+            'one_time', 'recurring', 'pause', 'resume', 'pse', 'nequi', 'currency_COP', 'payment_links' => true,
             default => false, // trial, nequi_recurring, currency_USD...
         };
     }

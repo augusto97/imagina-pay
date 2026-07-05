@@ -98,6 +98,10 @@ final class PaymentLinksController extends AbstractController
 
         $gateway = $this->gateways->get((string) $input['gateway']);
 
+        if (!$gateway->supports('payment_links')) {
+            throw new ValidationException(['gateway' => 'Esta pasarela no soporta links de pago.']);
+        }
+
         if (!$gateway->supports('currency_' . $money->currency)) {
             throw new ValidationException(['gateway' => sprintf('Esta pasarela no procesa %s.', $money->currency)]);
         }

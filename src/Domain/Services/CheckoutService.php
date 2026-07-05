@@ -46,7 +46,7 @@ final class CheckoutService
 
     /**
      * @param array<string, mixed> $input Datos ya validados por el Validator del controller.
-     * @return array{redirect_url: string, order: string}
+     * @return array{redirect_url: string, order: string, widget?: array<string, mixed>}
      */
     public function start(array $input): array
     {
@@ -77,6 +77,14 @@ final class CheckoutService
         if ($isRecurring && !$gateway->supports('recurring')) {
             throw new ValidationException([
                 'gateway' => 'Este método de pago no soporta suscripciones.',
+            ]);
+        }
+
+        // Los anuales híbridos renuevan por link de pago: la pasarela debe
+        // poder generarlos (ePayco no — está solo para pago único).
+        if ($product->type === ProductType::AnnualHybrid && !$gateway->supports('payment_links')) {
+            throw new ValidationException([
+                'gateway' => 'Este método de pago no está disponible para productos con renovación anual.',
             ]);
         }
 
@@ -128,10 +136,16 @@ final class CheckoutService
             $gateway->id(),
         ));
 
-        return [
+        $result = [
             'redirect_url' => $session->redirectUrl,
             'order' => $orderUuid,
         ];
+
+        if ($session->widget !== null) {
+            $result['widget'] = $session->widget;
+        }
+
+        return $result;
     }
 
     private function startOneTime(int $orderId, string $gatewayId): \ImaginaPay\Gateways\CheckoutSession

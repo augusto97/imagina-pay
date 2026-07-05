@@ -10,6 +10,7 @@ type SettingsMap = Record<string, string | boolean | number | null>;
 const TABS = [
   { key: 'mercadopago', label: 'Mercado Pago' },
   { key: 'paypal', label: 'PayPal' },
+  { key: 'epayco', label: 'ePayco' },
   { key: 'emails', label: 'Emails' },
   { key: 'avanzado', label: 'Avanzado' },
 ] as const;
@@ -30,6 +31,11 @@ const FIELDS: Record<TabKey, { key: string; label: string; secret?: boolean; hin
     { key: 'paypal_client_id_test', label: 'Client ID (sandbox)' },
     { key: 'paypal_client_secret_test', label: 'Client Secret (sandbox)', secret: true },
     { key: 'paypal_webhook_id', label: 'Webhook ID', hint: 'Necesario para verificar la firma de los webhooks.' },
+  ],
+  epayco: [
+    { key: 'epayco_cust_id', label: 'P_CUST_ID_CLIENTE (ID de cliente)' },
+    { key: 'epayco_public_key', label: 'PUBLIC_KEY' },
+    { key: 'epayco_p_key', label: 'P_KEY', secret: true, hint: 'Se usa para verificar la firma de la confirmación.' },
   ],
   emails: [
     { key: 'email_from_name', label: 'Nombre del remitente' },
@@ -98,9 +104,11 @@ export function SettingsPage() {
       </div>
 
       <Card className="impay-space-y-4 impay-p-6">
-        {(tab === 'mercadopago' || tab === 'paypal') && (
+        {(tab === 'mercadopago' || tab === 'paypal' || tab === 'epayco') && (
           <div className="impay-rounded-control impay-bg-accent-soft impay-px-4 impay-py-3 impay-text-sm">
-            <p className="impay-font-medium impay-text-accent">URL de webhooks para registrar en el panel:</p>
+            <p className="impay-font-medium impay-text-accent">
+              {tab === 'epayco' ? 'URL de confirmación para configurar en el panel:' : 'URL de webhooks para registrar en el panel:'}
+            </p>
             <button
               className="impay-mt-1 impay-font-mono impay-text-xs impay-text-ink hover:impay-text-accent"
               onClick={() => {
@@ -137,10 +145,28 @@ export function SettingsPage() {
           </Field>
         ))}
 
+        {tab === 'epayco' && (
+          <label className="impay-flex impay-items-center impay-gap-2 impay-text-sm">
+            <input
+              type="checkbox"
+              checked={form.epayco_test === undefined ? true : Boolean(form.epayco_test)}
+              onChange={(e) => setForm({ ...form, epayco_test: e.target.checked })}
+            />
+            Modo pruebas (transacciones de prueba)
+          </label>
+        )}
+
         {tab === 'mercadopago' && (
           <p className="impay-text-xs impay-text-muted">
             Mercado Pago cobra en COP (cuenta Colombia). Las suscripciones solo aceptan tarjeta; PSE y Nequi
             están disponibles para pagos únicos.
+          </p>
+        )}
+        {tab === 'epayco' && (
+          <p className="impay-text-xs impay-text-muted">
+            ePayco está habilitado solo para pagos únicos en COP (tarjeta, PSE, efectivo). Las suscripciones no
+            usan esta pasarela por decisión de negocio. Al llenar las 3 credenciales, ePayco aparece
+            automáticamente como opción en el checkout de productos de pago único.
           </p>
         )}
         {tab === 'avanzado' && (
